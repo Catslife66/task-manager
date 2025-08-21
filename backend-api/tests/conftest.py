@@ -2,7 +2,7 @@ from os import access
 import pytest
 from alembic import config, command
 from fastapi.testclient import TestClient
-from sqlmodel import Session, create_engine
+from sqlmodel import Session, SQLModel, create_engine
 from decouple import config as decouple_config
 
 from src.db import get_session as real_get_session
@@ -24,11 +24,14 @@ def engine(database_url):
     return create_engine(database_url, pool_pre_ping=True, echo=False)
 
 @pytest.fixture(scope="session", autouse=True)
-def migrate_schema_once():
+def migrate_schema_once(engine):
+    SQLModel.metadata.drop_all(engine)
+    SQLModel.metadata.create_all(engine)
     alembic_config = config.Config("alembic.ini")
     alembic_config.set_main_option("sqlalchemy.url", TEST_DATABASE_URL)
     command.upgrade(alembic_config, "head")
     yield
+    SQLModel.metadata.drop_all(engine)
 
 @pytest.fixture(scope="function")
 def db_session(engine):
