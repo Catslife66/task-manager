@@ -1,0 +1,40 @@
+services:
+  api:
+    build:
+      context: ./task-manager-backend-api
+      dockerfile: Dockerfile
+    container_name: task_manager_app
+    env_file:
+      - ./task-manager-backend-api/.env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./task-manager-backend-api:/app
+    depends_on:
+      - db
+
+  db:
+    image: postgres:latest
+    container_name: task_manager_db
+    env_file:
+      - ./task-manager-backend-api/.env
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./task-manager-backend-api/docker/initdb:/docker-entrypoint-initdb.d
+
+  # web:
+  #   build:
+  #     context: ./task-manager-frontend-web
+  #     dockerfile: Dockerfile
+  #   container_name: task_manager_web
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - ./task-manager-frontend-nextjs:/app
+  #   depends_on:
+  #     - api
+
+volumes:
+  postgres_data:

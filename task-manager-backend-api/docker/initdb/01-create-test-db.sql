@@ -1,0 +1,2 @@
+CREATE DATABASE test_db OWNER taskadmin;
+GRANT ALL PRIVILEGES ON DATABASE test_db TO taskadmin;
