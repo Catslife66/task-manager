@@ -1,21 +1,24 @@
-from pydantic import EmailStr, Field
+from pydantic import EmailStr, Field, AfterValidator
 from sqlmodel import SQLModel
+from typing_extensions import Annotated
+from .validators import check_password_strength
 
 
 class UserReadSchema(SQLModel):
     id: int
-    email: str 
+    email: EmailStr 
 
 
 class UserInSchema(SQLModel):
     email: EmailStr = Field(unique=True, max_length=100)
-    password: str = Field(min_length=8, max_length=128)
+    password: Annotated[str, AfterValidator(check_password_strength)]
 
 
 class TokenSchema(SQLModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
 
 
 class TokenDataSchema(SQLModel):
-    email: str | None = None
+    email: EmailStr | None = None

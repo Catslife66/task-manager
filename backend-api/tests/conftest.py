@@ -1,4 +1,3 @@
-from os import access
 import pytest
 from alembic import config, command
 from fastapi.testclient import TestClient
@@ -9,6 +8,7 @@ from src.db import get_session as real_get_session
 from src.main import app
 from src.models import User, Task, Tag
 from src.users.helpers import create_access_token, hash_password
+from src.users.csrf import create_csrf_token
 
 
 TEST_DATABASE_URL = decouple_config("TEST_DATABASE_URL", default="postgresql+psycopg2://taskadmin:taskmanageradmin123@db:5432/test_db")
@@ -92,8 +92,14 @@ def auth_headers(test_user):
     return {"Authorization": f"Bearer {access_token}"}
 
 @pytest.fixture
+def csrf_token_header(client):
+    csrf_token = create_csrf_token()
+    client.cookies.set("csrf_token", csrf_token)
+    return {"x-csrf-token": csrf_token}
+
+@pytest.fixture
 def test_task_payload():
     return {
-        "title": "Test Task",
+        "title": "New Test Task",
         "description": "This is a test task",
     }

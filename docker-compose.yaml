@@ -10,6 +10,8 @@ services:
       - "8000:8000"
     volumes:
       - ./backend-api:/app
+    networks:
+      - app_network
     depends_on:
       - db
 
@@ -23,18 +25,31 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend-api/docker/initdb:/docker-entrypoint-initdb.d
+    networks:
+      - app_network
 
-  # web:
-  #   build:
-  #     context: ./frontend-web
-  #     dockerfile: Dockerfile
-  #   container_name: task_manager_web
-  #   ports:
-  #     - "3000:3000"
-  #   volumes:
-  #     - ./frontend-nextjs:/app
-  #   depends_on:
-  #     - api
+  frontend:
+    build:
+      context: ./frontend-nextjs
+      dockerfile: Dockerfile
+    container_name: task_manager_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+    volumes:
+      - ./frontend-nextjs:/app
+      - /app/node_modules
+    networks:
+      - app_network
+    depends_on:
+      - api
+
+networks:
+  app_network:
+    driver: bridge
 
 volumes:
   postgres_data:
