@@ -3,34 +3,33 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../../authProvider";
+import axios from "axios";
+
+const LOGIN_URL = `${NEXT_PUBLIC_API_URL}/api/users/login`;
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const LOGIN_URL = `${process.env.NEXT_PUBLIC_API_URL}/api/users/login`;
   const auth = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     try {
-      const res = await fetch(LOGIN_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || "Login failed");
-      }
-      await auth.login(data.access_token, data.refresh_token);
+      const res = await axios.post(LOGIN_URL, { email, password });
+      console.log(res);
+      auth.login(email);
     } catch (e) {
-      const errorMessage =
-        e instanceof Error ? e.message : "An unexpected error occurred";
-      console.error("Login error:", errorMessage);
-      setError(errorMessage);
+      if (e.response) {
+        const err = e.response.data?.detail || e.message;
+        setError(err);
+        console.log(e);
+      } else if (e.request) {
+        console.log(e.request);
+      } else {
+        console.log(e);
+      }
     }
   };
 

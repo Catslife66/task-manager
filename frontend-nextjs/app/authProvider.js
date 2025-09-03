@@ -1,66 +1,106 @@
 "use client";
 
-import { getAuth } from "../lib/actions";
+import { useSearchParams, useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useState } from "react";
-import { setAccessToken, setRefreshToken } from "../lib/auth";
+import { csrftoken } from "../lib/utils/getCSRFToken";
+import axios from "axios";
 
 export const AuthContext = createContext({});
 
 export const useAuth = () => useContext(AuthContext);
 
-export default function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [isloading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+const LOGIN_REDIRECT_URL = "/";
+const VERIFY_ACCESS_API_ENDPOINT = `${process.env.NEXT_PUBLIC_API_URL}/api/users/verify`;
+const VERIFY_REFRESH_API_ENDPOINT = `${process.env.NEXT_PUBLIC_API_URL}/api/users/refresh`;
 
-  const checkAuth = async () => {
+export default function AuthProvider({ children }) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [accessToken, setAccessToken] = useState(null);
+  const [userEmail, setUserEmail] = useState(null);
+
+  const searchParam = useSearchParams();
+  const router = useRouter();
+
+  async function verifyWithAccess() {
+    if (!accessToken) return false;
     try {
-      const userData = await getAuth();
-      if (userData) {
-        setUser(userData);
-      } else {
-        setUser(null);
-      }
+      const config = {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      };
+      const res = await axios.post(VERIFY_ACCESS_API_ENDPOINT, config);
+      const user = res.data;
+      setUserEmail(user.email);
+      return true;
     } catch (e) {
-      setError("Authentication failed");
-      setUser(null);
-    } finally {
-      setIsLoading(false);
+      return false;
+    }
+  }
+
+  async function verifyWithRefresh() {
+    try {
+      const config = {
+        withCredentials: true,
+        headers: { "X-CSRF-Token": csrftoken },
+      };
+      const res = await axios.post(VERIFY_REFRESH_API_ENDPOINT, config);
+      const { access_token } = res.data;
+      setAccessToken(access_token);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async function getUserState() {
+    if (accessToken) {
+      const ok = await verifyWithAccess();
+      if (ok) {
+        setIsAuthenticated(true);
+        return;
+      }
+    }
+
+    const refreshed = await verifyWithRefresh();
+    if (refreshed) {
+      const ok = await verifyWithAccess();
+      setIsAuthenticated(true);
+      if (!ok) {
+        setAccessToken(null);
+        setUserEmail(null);
+      }
+    } else {
+      setIsAuthenticated(false);
+      setAccessToken(null);
+      setUserEmail(null);
+    }
+  }
+
+  useEffect(() => {
+    getUserState();
+  }, []);
+
+  const login = (email) => {
+    if (email) setUserEmail(email);
+    setIsAuthenticated(true);
+    const nextUrl = searchParam.get("next");
+    const invalidNextUrl = ["/login", "/logout", "/register"];
+    if (
+      nextUrl &&
+      !invalidNextUrl.includes(nextUrl) &&
+      nextUrl.startsWith("/")
+    ) {
+      router.replace(nextUrl);
+    } else {
+      router.replace(LOGIN_REDIRECT_URL);
     }
   };
 
-  const login = async (accessToken, refreshToken) => {
-    // try {
-    //   const res = await fetch(`${API_URL}/users/login`, {
-    //     method: "POST",
-    //     headers: {
-    //       "Content-Type": "application/json",
-    //     },
-    //     body: JSON.stringify({ email, password }),
-    //   });
-
-    //   if (!res.ok) {
-    //     throw new Error("Login failed");
-    //   }
-
-    //   const data = await res.json();
-    //   await setAccessToken(data.access_token);
-    //   await setRefreshToken(data.refresh_token);
-    //   return data;
-    // } catch (error) {
-    //   console.error("Error during login:", error);
-    //   throw error;
-    // }
-    await setAccessToken(accessToken);
-    await setRefreshToken(refreshToken);
-  };
-
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
   return (
-    <AuthContext.Provider value={{ user, isloading, error, checkAuth, login }}>
+    <AuthContext.Provider
+      value={{ isAuthenticated, accessToken, userEmail, login }}
+    >
       {children}
     </AuthContext.Provider>
   );

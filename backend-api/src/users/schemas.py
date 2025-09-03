@@ -16,7 +16,6 @@ class UserInSchema(SQLModel):
 
 class TokenSchema(SQLModel):
     access_token: str
-    refresh_token: str
     token_type: str = "bearer"
 
 

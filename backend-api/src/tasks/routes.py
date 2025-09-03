@@ -4,10 +4,9 @@ from sqlmodel import Session, select
 from src.db import get_session
 from src.models import Task, Tag, User
 from src.users.helpers import get_current_user
-from src.users.csrf import csrf_protect
 from .schemas import TagCreateSchema, TagUpdateSchema, TagReadSchema, TaskCreateSchema, TaskReadSchema, TaskUpdateSchema
 
-router = APIRouter(dependencies=[Depends(csrf_protect)])
+router = APIRouter()
 
 """
 Tag management routes

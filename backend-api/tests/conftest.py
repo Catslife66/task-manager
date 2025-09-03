@@ -92,12 +92,6 @@ def auth_headers(test_user):
     return {"Authorization": f"Bearer {access_token}"}
 
 @pytest.fixture
-def csrf_token_header(client):
-    csrf_token = create_csrf_token()
-    client.cookies.set("csrf_token", csrf_token)
-    return {"x-csrf-token": csrf_token}
-
-@pytest.fixture
 def test_task_payload():
     return {
         "title": "New Test Task",

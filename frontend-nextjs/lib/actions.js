@@ -8,7 +8,7 @@ import {
 
 const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/api`;
 
-export async function getAuth() {
+export async function getAuthState() {
   const accessToken = await getAccessToken();
   const refreshToken = await getRefreshToken();
 
@@ -42,7 +42,7 @@ export async function getAuth() {
       const data = await refreshRes.json();
       setAccessToken(data.access_token);
       setRefreshToken(data.refresh_token);
-      return data;
+      return true;
     }
   } catch (error) {
     console.error("Error during authentication:", error);
@@ -51,27 +51,6 @@ export async function getAuth() {
 }
 
 export async function login(accessToken, refreshToken) {
-  // try {
-  //   const res = await fetch(`${API_URL}/users/login`, {
-  //     method: "POST",
-  //     headers: {
-  //       "Content-Type": "application/json",
-  //     },
-  //     body: JSON.stringify({ email, password }),
-  //   });
-
-  //   if (!res.ok) {
-  //     throw new Error("Login failed");
-  //   }
-
-  //   const data = await res.json();
-  //   await setAccessToken(data.access_token);
-  //   await setRefreshToken(data.refresh_token);
-  //   return data;
-  // } catch (error) {
-  //   console.error("Error during login:", error);
-  //   throw error;
-  // }
   await setAccessToken(accessToken);
   await setRefreshToken(refreshToken);
 }
