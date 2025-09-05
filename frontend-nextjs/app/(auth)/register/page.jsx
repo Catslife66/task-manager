@@ -12,7 +12,7 @@ export default function page() {
   const [errMsg, setErrMsg] = useState(null);
   const [successMsg, setSucessMsg] = useState(null);
   const router = useRouter();
-  const REGISTER_URL = `${process.env.NEXT_PUBLIC_API_URL}/api/users/register`;
+  const REGISTER_ENDPOINT = `${process.env.NEXT_PUBLIC_API_URL}/api/users/register`;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,7 +23,7 @@ export default function page() {
       setErrMsg(errors);
     }
     try {
-      await axios.post(REGISTER_URL, result.data);
+      await axios.post(REGISTER_ENDPOINT, result.data);
       setSucessMsg("You have succssfullly registered. Please login.");
       setTimeout(() => {
         router.replace("/login");

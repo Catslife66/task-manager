@@ -6,9 +6,8 @@ from decouple import config as decouple_config
 
 from src.db import get_session as real_get_session
 from src.main import app
-from src.models import User, Task, Tag
+from src.models import User, Task
 from src.users.helpers import create_access_token, hash_password
-from src.users.csrf import create_csrf_token
 
 
 TEST_DATABASE_URL = decouple_config("TEST_DATABASE_URL", default="postgresql+psycopg2://taskadmin:taskmanageradmin123@db:5432/test_db")
@@ -66,19 +65,10 @@ def test_user(db_session):
     return user
 
 @pytest.fixture
-def test_tag(db_session):
-    tag = Tag(name="Test Tag")
-    db_session.add(tag)
-    db_session.commit()
-    db_session.refresh(tag)
-    return tag
-
-@pytest.fixture
-def test_task(db_session, test_tag, test_user):
+def test_task(db_session, test_user):
     task = Task(
         title="Test Task",
         description="This is a test task",
-        tag_id=test_tag.id,
         user_id=test_user.id,
     )
     db_session.add(task)

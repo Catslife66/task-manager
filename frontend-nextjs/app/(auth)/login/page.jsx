@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../../authProvider";
 import axios from "axios";
 
-const LOGIN_URL = `${NEXT_PUBLIC_API_URL}/api/users/login`;
+const LOGIN_ENDPOINT = `${process.env.NEXT_PUBLIC_API_URL}/api/users/login`;
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -17,9 +17,13 @@ export default function LoginPage() {
     e.preventDefault();
 
     try {
-      const res = await axios.post(LOGIN_URL, { email, password });
-      console.log(res);
-      auth.login(email);
+      const res = await axios.post(
+        LOGIN_ENDPOINT,
+        { email, password },
+        { withCredentials: true }
+      );
+      const { access_token } = res.data;
+      auth.login(access_token, email);
     } catch (e) {
       if (e.response) {
         const err = e.response.data?.detail || e.message;
@@ -41,7 +45,11 @@ export default function LoginPage() {
             <h1 className="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl dark:text-white">
               Sign in to your account
             </h1>
-            {error && <h2 className="text-red-500">{error}</h2>}
+            {error && (
+              <div className="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50">
+                {error}
+              </div>
+            )}
             <form className="space-y-4 md:space-y-6" onSubmit={handleSubmit}>
               <div>
                 <label

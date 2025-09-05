@@ -9,9 +9,14 @@ class UserReadSchema(SQLModel):
     email: EmailStr 
 
 
-class UserInSchema(SQLModel):
+class UserCreateSchema(SQLModel):
     email: EmailStr = Field(unique=True, max_length=100)
     password: Annotated[str, AfterValidator(check_password_strength)]
+
+
+class UserInSchema(SQLModel):
+    email: EmailStr = Field(unique=True, max_length=100)
+    password: str
 
 
 class TokenSchema(SQLModel):

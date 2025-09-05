@@ -12,7 +12,7 @@ from src.users.helpers import (
     verify_password, 
     verify_token
 )
-from src.users.schemas import TokenSchema, UserInSchema, UserReadSchema
+from src.users.schemas import TokenSchema, UserCreateSchema, UserInSchema, UserReadSchema
 from src.models import User
 from src.users.csrf import create_csrf_token, csrf_protect 
 
@@ -35,14 +35,6 @@ def get_user(user_id:int, session: Session=Depends(get_session)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return {"message": IS_PROD_MODE}
 
-@router.post("/", response_model=UserReadSchema)
-def create_user(payload: UserInSchema, session: Session=Depends(get_session)):
-    user = User(email=payload.email)
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-    return user
-
 @router.delete("/{user_id}")
 def delete_user(user_id:int, session: Session=Depends(get_session)):
     user = session.get(User, user_id)
@@ -54,7 +46,7 @@ def delete_user(user_id:int, session: Session=Depends(get_session)):
 
 
 @router.post("/register", response_model=UserReadSchema)
-def register_user(payload: UserInSchema, session: Session = Depends(get_session)):
+def register_user(payload: UserCreateSchema, session: Session = Depends(get_session)):
     existing_user = session.exec(select(User).where(User.email == payload.email)).first()
     if existing_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
@@ -94,10 +86,6 @@ def login_user(
         path="/"
     )
     return TokenSchema(access_token=access_token)
-
-@router.post("/verify", response_model=UserReadSchema)
-def verify_user(current_user: Annotated[User, Depends(get_current_user)]):
-   return current_user
 
 @router.post("/refresh", response_model=TokenSchema, dependencies=[Depends(csrf_protect)])
 def refresh_tokens(
@@ -140,20 +128,23 @@ def refresh_tokens(
         return TokenSchema(access_token=access_token)
     except HTTPException as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
-    
+
+@router.post("/verify", response_model=UserReadSchema)
+def verify_user(current_user: Annotated[User, Depends(get_current_user)]):
+   return current_user    
 
 @router.post('/logout', dependencies=[Depends(csrf_protect)])
 def logout_user(response:Response):
     response.delete_cookie(
         REFRESH_TOKEN_NAME,
         httponly=True,
-        secure=True,
+        secure=IS_PROD_MODE,
         samesite='lax',
         path="/api/users/refresh",
     )
     response.delete_cookie(
         CSRF_TOKEN_NAME,
         httponly=False,
-        secure=True,
+        secure=IS_PROD_MODE,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

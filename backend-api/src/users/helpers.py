@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 
 from src.db import get_session
 from src.models import User
-from src.users.schemas import TokenDataSchema
+
 
 SECRET_KEY = config("AUTHJWT_SECRET_KEY")
 ALGORITHM = "HS256"

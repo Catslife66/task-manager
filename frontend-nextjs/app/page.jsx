@@ -1,36 +1,20 @@
 "use client";
 
-import axios from "axios";
-import { useEffect, useState } from "react";
+import { useAuth } from "./authProvider";
+import AddTaskForm from "./components/addTaskForm";
 
 export default function Home() {
-  const [users, setUsers] = useState([]);
-
-  const URL = "/api/users";
-
-  useEffect(() => {
-    async function getUsers() {
-      try {
-        const res = await axios.get(URL);
-        setUsers(res.data.users);
-        console.log(res);
-      } catch (e) {
-        console.log(e);
-      }
-    }
-    getUsers();
-  }, []);
+  const auth = useAuth();
 
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        {users &&
-          users.map((u, i) => (
-            <h1 key={i}>
-              {u.id}-{u.email}
-            </h1>
-          ))}
+    <div className="w-full">
+      <main className="flex justify-center items-center">
+        <h1>TASK MANAGER APP</h1>
+        <h1>Your email is: {auth.userEmail}</h1>
       </main>
+      <div className="w-full">
+        <AddTaskForm />
+      </div>
     </div>
   );
 }

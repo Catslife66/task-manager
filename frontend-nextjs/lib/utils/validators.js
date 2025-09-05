@@ -16,3 +16,7 @@ export const registerForm = z.object({
       error: "Password must contain at least one special character.",
     }),
 });
+
+export const tagForm = z.object({
+  name: z.string().max(50, { error: "Max length is 50 characters." }),
+});
