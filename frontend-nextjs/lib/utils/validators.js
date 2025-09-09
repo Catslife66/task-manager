@@ -17,6 +17,14 @@ export const registerForm = z.object({
     }),
 });
 
-export const tagForm = z.object({
-  name: z.string().max(50, { error: "Max length is 50 characters." }),
+export const taskCreateForm = z.object({
+  title: z
+    .string()
+    .min(1, { error: "Title cannot be empty." })
+    .max(200, { error: "Max length is 50 characters." }),
+  description: z.string().optional(),
+  due_date: z.coerce
+    .date({ error: "Please fill the date and time." })
+    .min(new Date(), { error: "Due date has to be a future date." }),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH"]),
 });

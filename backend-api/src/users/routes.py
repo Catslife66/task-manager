@@ -6,6 +6,8 @@ from decouple import config as decouple_config
 from src.db import get_session
 from src.users.helpers import (
     REFRESH_TOKEN_EXPIRE_MINUTE,
+    SESSION_COOKIE_EXPIRE_MINUTE,
+    create_session_cookie,
     create_tokens, 
     get_current_user, 
     hash_password, 
@@ -20,6 +22,7 @@ router = APIRouter()
 
 REFRESH_TOKEN_NAME = 'refresh_token'
 CSRF_TOKEN_NAME = 'csrf_token'
+SESSION_COOKIE_NAME = "session"
 IS_PROD_MODE = decouple_config("IS_PROD_MODE", cast=bool, default=False)
 
 @router.get("/", response_model=list[UserReadSchema])
@@ -66,8 +69,6 @@ def login_user(
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     access_token, refresh_token = create_tokens(data={"sub": user.email})
-    csrf_token = create_csrf_token()
-    # store refresh and csrf in cookies
     response.set_cookie(
         REFRESH_TOKEN_NAME,
         refresh_token,
@@ -77,6 +78,7 @@ def login_user(
         path="/api/users/refresh",
         max_age=REFRESH_TOKEN_EXPIRE_MINUTE*60
     )
+    csrf_token = create_csrf_token()
     response.set_cookie(
         CSRF_TOKEN_NAME,
         csrf_token,
@@ -84,6 +86,16 @@ def login_user(
         secure=IS_PROD_MODE,
         samesite="lax",
         path="/"
+    )
+    session_cookie = create_session_cookie(data={"sub": user.email}) 
+    response.set_cookie(
+        SESSION_COOKIE_NAME, 
+        session_cookie, 
+        httponly=True, 
+        secure=IS_PROD_MODE, 
+        samesite="lax", 
+        path="/", 
+        max_age=SESSION_COOKIE_EXPIRE_MINUTE*60
     )
     return TokenSchema(access_token=access_token)
 
@@ -125,6 +137,17 @@ def refresh_tokens(
             samesite="lax",
             path="/"
         )
+        session_cookie = create_session_cookie(data={"sub": user.email}) 
+        response.set_cookie(
+            SESSION_COOKIE_NAME, 
+            session_cookie, 
+            httponly=True, 
+            secure=IS_PROD_MODE, 
+            samesite="lax", 
+            path="/", 
+            max_age=SESSION_COOKIE_EXPIRE_MINUTE*60
+        )
+
         return TokenSchema(access_token=access_token)
     except HTTPException as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")

@@ -1,12 +1,43 @@
 "use client";
 
 import { useState } from "react";
+import { taskCreateForm } from "../../lib/utils/validators";
+import { useAuth } from "../authProvider";
 
 export default function AddTaskForm() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [date, setDate] = useState("");
-  const [priority, setPriority] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [priority, setPriority] = useState("MEDIUM");
+  const [errs, setErrs] = useState(null);
+  const auth = useAuth();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const formData = {
+      title,
+      description,
+      due_date: dueDate,
+      priority,
+    };
+    const result = taskCreateForm.safeParse(formData);
+    if (!result.success) {
+      let fieldErrs = {};
+      result.error.issues.forEach((err, _) => {
+        let key = err.path[0];
+        if (!fieldErrs[key]) fieldErrs[key] = err.message;
+      });
+      setErrs(fieldErrs);
+    } else {
+      console.log(result.data);
+      try {
+        const res = await auth.api.post("/tasks", result.data);
+        console.log(res);
+      } catch (e) {
+        console.log(e);
+      }
+    }
+  };
 
   return (
     <section className="bg-white">
@@ -16,87 +47,110 @@ export default function AddTaskForm() {
         </h2>
         <form className="space-y-8">
           <div>
-            <label
-              htmlFor="title"
-              className="block mb-2 text-sm font-medium text-gray-900"
-            >
-              Title
-            </label>
+            <div className="flex flex-row items-center mb-2 text-sm font-medium">
+              <label htmlFor="title" className="block text-gray-900 me-4">
+                Title
+              </label>
+              {errs?.title && (
+                <div className="text-sm text-red-800">{errs.title}</div>
+              )}
+            </div>
             <input
               type="text"
               name="title"
-              className="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500 dark:shadow-sm-light"
-              placeholder="name@flowbite.com"
+              value={title}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                setErrs({ ...errs, title: "" });
+              }}
+              className="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 dark:shadow-sm-light"
               required
             />
           </div>
           <div>
-            <label
-              htmlFor="description"
-              className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300"
-            >
-              Description
-            </label>
+            <div className="flex flex-row items-center mb-2 text-sm font-medium">
+              <label
+                htmlFor="description"
+                className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300"
+              >
+                Description
+              </label>
+              {errs?.description && (
+                <div className="text-sm text-red-800">{errs.description}</div>
+              )}
+            </div>
             <textarea
               name="description"
               rows="4"
-              className="block p-3 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500 dark:shadow-sm-light"
-              placeholder="Let us know how we can help you"
-              required
+              value={description}
+              onChange={(e) => {
+                setDescription(e.target.value);
+                setErrs({ ...errs, description: "" });
+              }}
+              className="block p-3 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 dark:shadow-sm-light"
             ></textarea>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="w-full h-full">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-row items-center text-sm font-medium">
               <label
                 htmlFor="dueDate"
-                className="block mb-2 text-sm font-medium text-gray-900"
+                className="block text-sm font-medium text-gray-900"
               >
-                Due date:
+                Due date
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
-                  <svg
-                    className="w-4 h-4 text-gray-500 dark:text-gray-400"
-                    aria-hidden="true"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path d="M20 4a2 2 0 0 0-2-2h-2V1a1 1 0 0 0-2 0v1h-3V1a1 1 0 0 0-2 0v1H6V1a1 1 0 0 0-2 0v1H2a2 2 0 0 0-2 2v2h20V4ZM0 18a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8H0v10Zm5-8h10a1 1 0 0 1 0 2H5a1 1 0 0 1 0-2Z" />
-                  </svg>
-                </div>
-                <input
-                  type="date"
-                  name="dueDate"
-                  min={new Date()}
-                  className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                  placeholder="Select date"
-                />
+              {errs?.due_date && (
+                <div className="ms-2 text-sm text-red-800">{errs.due_date}</div>
+              )}
+            </div>
+            <label
+              htmlFor="prority"
+              className="block text-sm font-medium text-gray-900"
+            >
+              Prority
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+                <svg
+                  className="w-4 h-4 text-gray-500 dark:text-gray-400"
+                  aria-hidden="true"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path d="M20 4a2 2 0 0 0-2-2h-2V1a1 1 0 0 0-2 0v1h-3V1a1 1 0 0 0-2 0v1H6V1a1 1 0 0 0-2 0v1H2a2 2 0 0 0-2 2v2h20V4ZM0 18a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8H0v10Zm5-8h10a1 1 0 0 1 0 2H5a1 1 0 0 1 0-2Z" />
+                </svg>
               </div>
+              <input
+                type="datetime-local"
+                name="dueDate"
+                min={new Date()}
+                value={dueDate}
+                onChange={(e) => {
+                  setDueDate(e.target.value);
+                  setErrs({ ...errs, due_date: "" });
+                }}
+                className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                placeholder="Select date"
+              />
             </div>
-            <div className="w-full h-full">
-              <label
-                htmlFor="prority"
-                className="block mb-2 text-sm font-medium text-gray-900"
-              >
-                Prority:
-              </label>
-              <select
-                placeholder="Choose a country"
-                className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-              >
-                <option value="US">United States</option>
-                <option value="CA">Canada</option>
-                <option value="FR">France</option>
-                <option value="DE">Germany</option>
-              </select>
-            </div>
+
+            <select
+              value={priority}
+              onChange={(e) => setPriority(e.target.value)}
+              placeholder="Priority"
+              className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+            >
+              <option value="LOW">LOW</option>
+              <option value="MEDIUM">MEDIUM</option>
+              <option value="HIGH">HIGH</option>
+            </select>
           </div>
           <button
             type="submit"
-            className="py-3 px-5 text-sm font-medium text-center text-white rounded-lg bg-primary-700 sm:w-fit hover:bg-primary-800 focus:ring-4 focus:outline-none focus:ring-primary-300 dark:bg-primary-600 dark:hover:bg-primary-700 dark:focus:ring-primary-800"
+            onClick={handleSubmit}
+            className="cursor-pointer py-3 px-5 text-sm font-medium text-center text-white rounded-lg bg-blue-700 sm:w-fit hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
           >
-            Send message
+            Create a task
           </button>
         </form>
       </div>

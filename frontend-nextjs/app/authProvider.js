@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { getCsrfFromCookie } from "../lib/utils/getCSRFToken";
 import axios from "axios";
 
@@ -11,9 +11,10 @@ export const useAuth = () => useContext(AuthContext);
 
 const LOGIN_URL = "/login";
 const LOGIN_REDIRECT_URL = "/";
-const VERIFY_ACCESS_API_ENDPOINT = `${process.env.NEXT_PUBLIC_API_URL}/api/users/verify`;
-const VERIFY_REFRESH_API_ENDPOINT = `${process.env.NEXT_PUBLIC_API_URL}/api/users/refresh`;
-const LOGOUT_ENDPOINT = `${process.env.NEXT_PUBLIC_API_URL}/api/users/logout`;
+const BACKEND_ENDPOINT_BASE = `${process.env.NEXT_PUBLIC_API_URL}/api`;
+const VERIFY_ACCESS_API_ENDPOINT = `${BACKEND_ENDPOINT_BASE}/users/verify`;
+const VERIFY_REFRESH_API_ENDPOINT = `${BACKEND_ENDPOINT_BASE}/users/refresh`;
+const LOGOUT_ENDPOINT = `${BACKEND_ENDPOINT_BASE}/users/logout`;
 
 export default function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true);
@@ -45,7 +46,7 @@ export default function AuthProvider({ children }) {
       const csrf = getCsrfFromCookie();
       const config = {
         withCredentials: true,
-        headers: { "X-CSRF-Token": csrf },
+        headers: { "X-CSRF-Token": csrf || "" },
       };
       const res = await axios.post(VERIFY_REFRESH_API_ENDPOINT, {}, config);
       const token = res.data?.access_token || null;
@@ -57,12 +58,8 @@ export default function AuthProvider({ children }) {
   }
 
   async function getUserState() {
-    let token = accessToken;
+    let token = accessToken || (await verifyWithRefresh());
 
-    if (!token) {
-      token = await verifyWithRefresh();
-    }
-    // still no issue access token after try with refresh
     if (!token) {
       setIsAuthenticated(false);
       setAccessToken(null);
@@ -81,6 +78,48 @@ export default function AuthProvider({ children }) {
       setUserEmail(null);
     }
   }
+
+  const api = useMemo(() => {
+    const instance = axios.create({
+      baseURL: BACKEND_ENDPOINT_BASE,
+      timeout: 1000,
+      withCredentials: false,
+    });
+
+    instance.interceptors.request.use((config) => {
+      if (accessToken) {
+        config.headers = config.headers || {};
+        config.headers.Authorization = `Bearer ${accessToken}`;
+        return config;
+      }
+    });
+
+    instance.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const { response, config } = error || {};
+        if (!response || error.response?.status !== 401 || !config._retry) {
+          throw error;
+        }
+
+        config._retry = true;
+        try {
+          const token = await verifyWithRefresh();
+          if (!token) throw error;
+        } catch {
+          throw error;
+        }
+
+        if (accessToken) {
+          config.headers = config.headers || {};
+          config.headers.Authorization = `Bearer ${accessToken}`;
+        }
+        return instance(config);
+      }
+    );
+
+    return instance;
+  }, [accessToken, verifyWithRefresh]);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,6 +140,9 @@ export default function AuthProvider({ children }) {
     }
 
     init();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const login = (access, email = null) => {
@@ -125,7 +167,7 @@ export default function AuthProvider({ children }) {
       const csrf = getCsrfFromCookie();
       const config = {
         withCredentials: true,
-        headers: { "X-CSRF-Token": csrf },
+        headers: { "X-CSRF-Token": csrf || "" },
       };
       await axios.post(LOGOUT_ENDPOINT, {}, config);
       setIsAuthenticated(false);
@@ -146,7 +188,7 @@ export default function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ isAuthenticated, accessToken, userEmail, login, logout }}
+      value={{ isAuthenticated, accessToken, userEmail, api, login, logout }}
     >
       {children}
     </AuthContext.Provider>
