@@ -14,7 +14,7 @@ const LOGIN_REDIRECT_URL = "/";
 const BACKEND_ENDPOINT_BASE = `${process.env.NEXT_PUBLIC_API_URL}/api`;
 const VERIFY_ACCESS_API_ENDPOINT = `${BACKEND_ENDPOINT_BASE}/users/verify`;
 const VERIFY_REFRESH_API_ENDPOINT = `${BACKEND_ENDPOINT_BASE}/users/refresh`;
-const LOGOUT_ENDPOINT = `${BACKEND_ENDPOINT_BASE}/users/logout`;
+const LOGOUT_ENDPOINT = "/users/logout";
 
 export default function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true);
@@ -90,8 +90,8 @@ export default function AuthProvider({ children }) {
       if (accessToken) {
         config.headers = config.headers || {};
         config.headers.Authorization = `Bearer ${accessToken}`;
-        return config;
       }
+      return config;
     });
 
     instance.interceptors.response.use(
@@ -101,19 +101,9 @@ export default function AuthProvider({ children }) {
         if (!response || error.response?.status !== 401 || !config._retry) {
           throw error;
         }
-
         config._retry = true;
-        try {
-          const token = await verifyWithRefresh();
-          if (!token) throw error;
-        } catch {
-          throw error;
-        }
-
-        if (accessToken) {
-          config.headers = config.headers || {};
-          config.headers.Authorization = `Bearer ${accessToken}`;
-        }
+        const token = await verifyWithRefresh();
+        if (!token) throw error;
         return instance(config);
       }
     );
@@ -164,16 +154,14 @@ export default function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      const csrf = getCsrfFromCookie();
-      const config = {
-        withCredentials: true,
-        headers: { "X-CSRF-Token": csrf || "" },
-      };
-      await axios.post(LOGOUT_ENDPOINT, {}, config);
-      setIsAuthenticated(false);
-      setUserEmail(null);
-      setAccessToken(null);
-      router.replace(LOGIN_URL);
+      await api.post(
+        LOGOUT_ENDPOINT,
+        {},
+        {
+          withCredentials: true,
+          headers: { "X-CSRF-Token": getCsrfFromCookie() || "" },
+        }
+      );
     } catch (e) {
       console.log(e);
     } finally {

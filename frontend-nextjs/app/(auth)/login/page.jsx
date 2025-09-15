@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../../authProvider";
-import axios from "axios";
 
-const LOGIN_ENDPOINT = `${process.env.NEXT_PUBLIC_API_URL}/api/users/login`;
+const LOGIN_ENDPOINT = "/users/login";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -17,7 +16,7 @@ export default function LoginPage() {
     e.preventDefault();
 
     try {
-      const res = await axios.post(
+      const res = await auth.api.post(
         LOGIN_ENDPOINT,
         { email, password },
         { withCredentials: true }
@@ -26,7 +25,7 @@ export default function LoginPage() {
       auth.login(access_token, email);
     } catch (e) {
       if (e.response) {
-        const err = e.response.data?.detail || e.message;
+        const err = e.response.data?.errors?.message || e.message;
         setError(err);
         console.log(e);
       } else if (e.request) {

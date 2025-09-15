@@ -1,20 +1,17 @@
 "use client";
 
+import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "./authProvider";
+import TaskPageContent from "./components/taskPageContent";
 import AddTaskForm from "./components/addTaskForm";
+import TaskList from "./components/taskList";
 
 export default function Home() {
-  const auth = useAuth();
-
   return (
-    <div className="w-full">
-      <main className="flex justify-center items-center">
-        <h1>TASK MANAGER APP</h1>
-        <h1>Your email is: {auth.userEmail}</h1>
-      </main>
-      <div className="w-full">
-        <AddTaskForm />
-      </div>
+    <div className="max-w-screen-xl flex flex-col items-center mx-auto py-8 px-4">
+      <h1 className="text-xl font-bold">My Tasks</h1>
+      <AddTaskForm />
+      <TaskList />
     </div>
   );
 }

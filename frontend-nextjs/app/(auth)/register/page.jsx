@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { registerForm } from "../../../lib/utils/validators";
-import axios from "axios";
+import { useAuth } from "../../authProvider";
 
 export default function page() {
   const [email, setEmail] = useState("");
@@ -12,31 +12,31 @@ export default function page() {
   const [errMsg, setErrMsg] = useState(null);
   const [successMsg, setSucessMsg] = useState(null);
   const router = useRouter();
-  const REGISTER_ENDPOINT = `${process.env.NEXT_PUBLIC_API_URL}/api/users/register`;
+  const auth = useAuth();
+  const REGISTER_ENDPOINT = "/users/register";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const result = registerForm.safeParse({ email, password });
     if (!result.success) {
-      console.log(result.error.issues);
       const errors = result.error.issues.map((er, _) => er.message);
       setErrMsg(errors);
     }
     try {
-      await axios.post(REGISTER_ENDPOINT, result.data);
+      await auth.api.post(REGISTER_ENDPOINT, result.data);
       setSucessMsg("You have succssfullly registered. Please login.");
       setTimeout(() => {
         router.replace("/login");
       }, 2000);
     } catch (e) {
       if (e.response) {
-        const err = e.response.data?.detail || e.message;
+        const err = e.response.data?.errors?.message || e.message;
         setErrMsg([err]);
-        console.error(err);
+        console.log(err);
       } else if (e.request) {
-        console.error("No response from server:", e.request);
+        console.log("No response from server:", e.request);
       } else {
-        console.error("Error in request setup:", e.message);
+        console.log("Error in request setup:", e.message);
       }
     }
   };

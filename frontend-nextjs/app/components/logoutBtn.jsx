@@ -15,9 +15,9 @@ export default function LogoutBtn() {
   return (
     <>
       <button
-        data-modal-target="default-modal"
-        data-modal-toggle="default-modal"
-        className="block text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+        data-modal-target="logout-modal"
+        data-modal-toggle="logout-modal"
+        className="cursor-pointer w-full text-gray-700 hover:bg-gray-200 font-medium text-sm px-5 py-2.5"
         type="button"
         onClick={() => setIsOpenModal(true)}
       >
@@ -25,7 +25,7 @@ export default function LogoutBtn() {
       </button>
 
       {isOpenModal && (
-        <div id="default-modal" tabIndex="-1" className="logout-modal">
+        <div id="logout-modal" tabIndex="-1" className="logout-modal">
           <div className="relative p-4 w-full h-full bg-gray-100 flex justify-center items-center">
             <div className="relative max-w-2/3 bg-white rounded-lg shadow-sm">
               <button
@@ -73,7 +73,7 @@ export default function LogoutBtn() {
                 <button
                   data-modal-hide="popup-modal"
                   type="button"
-                  className="text-white bg-red-600 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 dark:focus:ring-red-800 font-medium rounded-lg text-sm inline-flex items-center px-5 py-2.5 text-center"
+                  className="cursor-pointer w-full text-center text-white bg-red-600 hover:bg-red-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center"
                   onClick={submitLogout}
                 >
                   Yes, I'm sure
@@ -81,7 +81,7 @@ export default function LogoutBtn() {
                 <button
                   data-modal-hide="popup-modal"
                   type="button"
-                  className="py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700"
+                  className="cursor-pointer w-full mt-2 py-2.5 px-5 text-sm font-medium text-gray-900 bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700"
                   onClick={() => setIsOpenModal(false)}
                 >
                   No, cancel

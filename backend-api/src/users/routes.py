@@ -25,6 +25,28 @@ CSRF_TOKEN_NAME = 'csrf_token'
 SESSION_COOKIE_NAME = "session"
 IS_PROD_MODE = decouple_config("IS_PROD_MODE", cast=bool, default=False)
 
+USER_NOT_FOUND_ERR = {"code": "NOT FOUND", "message": "User is not found."}
+USER_CONFLICT_ERR = {
+    "code": "DUPLICATE", 
+    "message": "This email has been registered."
+}
+USER_UNAUTH_ERR =  {
+    "code": "UNAUTHORIZED", 
+    "message": "Invalid credentials."
+}
+NO_REFRESH_TOKEN_ERR = {
+    "code": "UNAUTHORIZED", 
+    "message": "Missing refresh token."
+}
+INVALID_REFRESH_TOKEN_ERR = {
+    "code": "UNAUTHORIZED",
+    "message": "Invalid or expired refresh token."
+}
+INVALID_TOKEN_ERR = {
+    "code": "UNAUTHORIZED",
+    "message": "Invalid token payload."
+}
+
 @router.get("/", response_model=list[UserReadSchema])
 def get_users(session: Session=Depends(get_session)):
     users = session.exec(select(User)).all()
@@ -33,16 +55,18 @@ def get_users(session: Session=Depends(get_session)):
 @router.get("/{user_id}", response_model=UserReadSchema)
 def get_user(user_id:int, session: Session=Depends(get_session)):
     user = session.get(User, user_id)
-
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    return {"message": IS_PROD_MODE}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail=USER_NOT_FOUND_ERR
+        )
+    return user
 
 @router.delete("/{user_id}")
 def delete_user(user_id:int, session: Session=Depends(get_session)):
     user = session.get(User, user_id)
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=USER_NOT_FOUND_ERR)
     session.delete(user)
     session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -52,7 +76,7 @@ def delete_user(user_id:int, session: Session=Depends(get_session)):
 def register_user(payload: UserCreateSchema, session: Session = Depends(get_session)):
     existing_user = session.exec(select(User).where(User.email == payload.email)).first()
     if existing_user:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=USER_CONFLICT_ERR)
     user = User(email=payload.email, hashed_password=hash_password(payload.password))
     session.add(user)
     session.commit()
@@ -67,7 +91,7 @@ def login_user(
     ):
     user = session.exec(select(User).where(User.email == payload.email)).first()
     if not user or not verify_password(payload.password, user.hashed_password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=USER_UNAUTH_ERR)
     access_token, refresh_token = create_tokens(data={"sub": user.email})
     response.set_cookie(
         REFRESH_TOKEN_NAME,
@@ -107,17 +131,17 @@ def refresh_tokens(
 ):
     refresh_token = request.cookies.get(REFRESH_TOKEN_NAME)
     if not refresh_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing refresh token.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=NO_REFRESH_TOKEN_ERR)
     try:
         payload = verify_token(refresh_token)
         if not payload:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired refresh token")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=INVALID_REFRESH_TOKEN_ERR)
         email = payload.get("sub")
         if not email:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=INVALID_TOKEN_ERR)
         user = session.exec(select(User).where(User.email == email)).first()
         if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=USER_NOT_FOUND_ERR)
         access_token, new_refresh_token = create_tokens(data={"sub": user.email})
         response.set_cookie(
             REFRESH_TOKEN_NAME,
@@ -149,8 +173,10 @@ def refresh_tokens(
         )
 
         return TokenSchema(access_token=access_token)
-    except HTTPException as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail=INVALID_REFRESH_TOKEN_ERR)
 
 @router.post("/verify", response_model=UserReadSchema)
 def verify_user(current_user: Annotated[User, Depends(get_current_user)]):
@@ -169,5 +195,14 @@ def logout_user(response:Response):
         CSRF_TOKEN_NAME,
         httponly=False,
         secure=IS_PROD_MODE,
+        samesite="lax",
+        path="/"
     )
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    response.delete_cookie(
+        SESSION_COOKIE_NAME, 
+        httponly=True, 
+        secure=IS_PROD_MODE, 
+        samesite="lax", 
+        path="/", 
+    )
+    return
