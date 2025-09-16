@@ -165,10 +165,10 @@ export default function AuthProvider({ children }) {
     } catch (e) {
       console.log(e);
     } finally {
+      router.replace(LOGIN_URL);
       setIsAuthenticated(false);
       setUserEmail(null);
       setAccessToken(null);
-      router.replace(LOGIN_URL);
     }
   };
 

@@ -22,19 +22,28 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 CREDENTIALS_EXCEPTION = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
-    detail="Could not validate credentials",
+    detail={
+        "code": "UNAUTHORIZED", 
+        "message": "Invalid credentials."
+    },
     headers={"WWW-Authenticate": "Bearer"},
 )
 
 TOKEN_EXPIRY_EXCEPTION = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
-    detail="Token has expired",
+    detail={
+        "code": "UNAUTHORIZED",
+        "message": "Token is expired."
+    },
     headers={"WWW-Authenticate": "Bearer"},
 )
 
 TOKEN_INVALID_EXCEPTION= HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
-    detail="Token is invalid",
+    detail={
+        "code": "UNAUTHORIZED",
+        "message": "Token is invalid."
+    },
     headers={"WWW-Authenticate": "Bearer"},
 )
 

@@ -1,11 +1,25 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import LogoutBtn from "./logoutBtn";
+import Link from "next/link";
 
 export default function UserBtn({ userEmail }) {
+  const ref = useRef(null);
   const [isOpen, setIsOpen] = useState(false);
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (ref.current && !ref.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
   return (
-    <div className="relative">
+    <div ref={ref} className="relative">
       <button
         data-dropdown-toggle="userAvatar"
         className="cursor-pointer flex text-sm border border-gray-800 rounded-full p-1 hover:bg-gray-100"
@@ -31,7 +45,11 @@ export default function UserBtn({ userEmail }) {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-4 z-10 bg-white divide-y divide-gray-100 rounded-lg shadow-sm dark:bg-gray-700 dark:divide-gray-600">
+        <div
+          onPointerOver={() => setIsOpen(true)}
+          onPointerOut={() => setIsOpen(false)}
+          className="absolute right-0 mt-4 z-10 bg-white divide-y divide-gray-100 rounded-lg shadow-sm dark:bg-gray-700 dark:divide-gray-600"
+        >
           <div className="px-4 py-3 text-sm text-gray-900 dark:text-white">
             <div className="font-medium truncate">{userEmail || ""}</div>
           </div>
@@ -40,20 +58,20 @@ export default function UserBtn({ userEmail }) {
             aria-labelledby="dropdownUserAvatarButton"
           >
             <li>
-              <a
-                href="#"
+              <Link
+                href="/tasks"
                 className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white"
               >
-                All My Tasks
-              </a>
+                My Tasks
+              </Link>
             </li>
             <li>
-              <a
-                href="#"
+              <Link
+                href="/tasks/done"
                 className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white"
               >
                 Completed Tasks
-              </a>
+              </Link>
             </li>
           </ul>
           <div className="py-2">

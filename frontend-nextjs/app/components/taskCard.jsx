@@ -1,11 +1,9 @@
 import React, { useMemo, useRef, useState, useEffect } from "react";
 import { taskCreateForm } from "../../lib/utils/validators";
-import { on } from "events";
 
 const TaskCard = React.memo(
   ({
     task,
-    editId,
     errs,
     setErrs,
     onEdit,
@@ -16,7 +14,6 @@ const TaskCard = React.memo(
   }) => {
     const ref = useRef(null);
     const [isEditing, setIsEditing] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
     const [title, setTitle] = useState(task.title || "");
     const [description, setDescription] = useState(task.description || "");
     const [dueDate, setDueDate] = useState(task.due_date || "");
@@ -30,18 +27,13 @@ const TaskCard = React.memo(
           ? "bg-yellow-100 text-yellow-800"
           : "bg-green-100 text-green-800";
       return (
-        <span className={`px-2 py-1 text-xs font-medium rounded-full ${cls}`}>
+        <span
+          className={`self-start md:self-auto px-2 py-1 text-xs font-medium rounded-lg ${cls}`}
+        >
           {task.priority}
         </span>
       );
     }, [task.priority]);
-
-    const handleBlur = (e) => {
-      if (!ref.current || !ref.current?.contains(e.relatedTarget)) {
-        setIsEditing(false);
-        onCancelEdit(null);
-      }
-    };
 
     const handleUpdate = async (e) => {
       e.preventDefault();
@@ -64,7 +56,6 @@ const TaskCard = React.memo(
           await onUpdate(task.id, result.data);
           setIsEditing(false);
         } catch (e) {
-          setErrs({ general: "Failed to save the task" });
           setIsEditing(true);
           console.log(e);
         }
@@ -72,11 +63,8 @@ const TaskCard = React.memo(
     };
 
     useEffect(() => {
-      if (!editId) {
-        setIsEditing(false);
-      }
       if (!isEditing) return;
-      function onDocPointerDown(e) {
+      function onDetectBlur(e) {
         const t = e.target;
         if (!ref.current?.contains(t)) {
           setIsEditing(false);
@@ -88,12 +76,11 @@ const TaskCard = React.memo(
           setErrs(null);
         }
       }
-      document.addEventListener("pointerdown", onDocPointerDown);
-      return () =>
-        document.removeEventListener("pointerdown", onDocPointerDown);
-    }, [editId, isEditing, onCancelEdit, task]);
+      document.addEventListener("pointerdown", onDetectBlur);
+      return () => document.removeEventListener("pointerdown", onDetectBlur);
+    }, [isEditing, onCancelEdit, task]);
 
-    return isEditing ? (
+    return isEditing && !task.is_completed ? (
       <form
         ref={ref}
         tabIndex={0}
@@ -104,7 +91,6 @@ const TaskCard = React.memo(
         onMouseDown={() => ref.current?.focus()}
         onPointerDown={(e) => e.stopPropagation()}
         onSubmit={handleUpdate}
-        onBlur={handleBlur}
         className="w-full mx-auto my-8"
       >
         {errs?.general && (
@@ -225,13 +211,13 @@ const TaskCard = React.memo(
           onEdit(task.id);
         }}
         onMouseDown={() => ref.current?.focus()}
-        onBlur={handleBlur}
         className="w-full flex items-center px-4 py-2 border border-gray-200 rounded-lg dark:border-gray-700"
       >
         <div>
           <input
             type="checkbox"
             checked={task.is_completed}
+            disabled={task.is_completed}
             name="isCompleted"
             onChange={() => onComplete(task.id)}
             className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"

@@ -10,8 +10,14 @@ router = APIRouter()
 """
 Task management routes
 """
-TASK_NOT_FOUND_ERR = {"code": "NOT FOUND", "message": "Task is not found."}
-NO_PERMISSION_ERR = {"code": "FORBIDDEN", "message": "You do not have permission to read/update/delete this task."}
+TASK_NOT_FOUND_ERR = {
+    "code": "NOT FOUND", 
+    "message": "Task is not found."
+}
+NO_PERMISSION_ERR = {
+    "code": "FORBIDDEN", 
+    "message": "You do not have permission to read/update/delete this task."
+}
 
 @router.get("/tasks", response_model=list[TaskReadSchema])
 def get_tasks(session: Session = Depends(get_session)):
@@ -23,7 +29,6 @@ def get_user_tasks(
     current_user: User = Depends(get_current_user), 
     session: Session = Depends(get_session),
     q: str | None = Query(None),
-
 ):
     query = select(Task).where(Task.user_id == current_user.id)
     if q:

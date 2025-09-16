@@ -3,11 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import TaskCard from "./taskCard";
 import { useAuth } from "../authProvider";
-import { taskCreateForm } from "../../lib/utils/validators";
 
 const GET_TASKS_ENDPOINT = "/tasks/user";
 
-export default function TaskList() {
+export default function TaskList({ is_completed = false }) {
   const [isLoading, setIsLoading] = useState(true);
   const [tasks, setTasks] = useState([]);
   const [editId, setEditId] = useState(null);
@@ -17,15 +16,21 @@ export default function TaskList() {
   const getTasks = useCallback(async () => {
     try {
       const res = await auth.api.get(GET_TASKS_ENDPOINT);
-      const todoTasks = res.data.filter((task) => task.is_completed === false);
+      const todoTasks = res.data.filter(
+        (task) => task.is_completed === is_completed
+      );
       setTasks(todoTasks);
     } finally {
       setIsLoading(false);
     }
-  }, [auth.api]);
+  }, []);
 
   const handleEdit = useCallback((taskId) => {
     setEditId(taskId);
+  }, []);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditId(null);
   }, []);
 
   const handleUpdate = useCallback(
@@ -38,16 +43,11 @@ export default function TaskList() {
         setErrs(null);
       } catch (e) {
         setErrs({ general: "Failed to save the task" });
-
         console.log(e);
       }
     },
     [auth.api, getTasks]
   );
-
-  const handleCancelEdit = useCallback(() => {
-    setEditId(null);
-  }, []);
 
   const handleComplete = useCallback(
     async (taskId) => {

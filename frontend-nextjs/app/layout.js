@@ -24,7 +24,7 @@ export default function RootLayout({ children }) {
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <AuthProvider>
           <Header />
-          <main className="w-full pt-16">{children}</main>
+          <main className="w-full">{children}</main>
         </AuthProvider>
       </body>
     </html>
