@@ -37,3 +37,20 @@ export const loginForm = z.object({
 export const passwordResetRequestForm = z.object({
   email: z.email({ error: "Invalid email address" }),
 });
+
+export const passwordResetForm = z.object({
+  password: z
+    .string()
+    .min(8, { error: "Password must be at least 8 characters long." })
+    .regex(/[a-z]/, {
+      error: "Password must contain at least one lowercase letter.",
+    })
+    .regex(/[A-Z]/, {
+      error: "Password must contain at least one uppderrcase letter.",
+    })
+    .regex(/d/, { error: "Password must contain at least one number." })
+    .regex(/[^a-zA-Z0-9]/, {
+      error: "Password must contain at least one special character.",
+    }),
+  password2: z.string().min(1, { error: "Please confirm your password." }),
+});

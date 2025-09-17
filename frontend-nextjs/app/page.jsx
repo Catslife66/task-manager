@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { RiNextjsFill } from "react-icons/ri";
 import { SiFastapi, SiDocker } from "react-icons/si";
+import { useAuth } from "./authProvider";
 
 export default function Home() {
+  const auth = useAuth();
+
   return (
     <section className="w-full h-screen bg-white pt-16">
       <div className="h-full py-8 px-4 mx-auto max-w-screen-xl flex flex-col justify-center items-center text-center lg:py-16 lg:px-12">
@@ -18,18 +21,29 @@ export default function Home() {
           keep you productive.
         </p>
         <div className="flex flex-col mb-8 lg:mb-16 space-y-4 sm:flex-row sm:justify-center sm:space-y-0 sm:space-x-4">
-          <Link
-            href="/login"
-            className="inline-flex justify-center items-center py-3 px-5 text-base font-medium text-center text-blue-600 rounded-lg bg-blue-200 hover:bg-blue-300 focus:ring-4 focus:ring-blue-300"
-          >
-            Login to tasks
-          </Link>
-          <Link
-            href="/register"
-            className="inline-flex justify-center items-center py-3 px-5 text-base font-medium text-center text-gray-900 rounded-lg border border-gray-300 hover:bg-gray-100 focus:ring-4 focus:ring-gray-100 dark:text-white dark:border-gray-700 dark:hover:bg-gray-700 dark:focus:ring-gray-800"
-          >
-            Create an account
-          </Link>
+          {auth.isAuthenticated ? (
+            <Link
+              href="/tasks"
+              className="inline-flex justify-center items-center py-3 px-5 text-base font-medium text-center text-white rounded-lg bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300"
+            >
+              Go to tasks
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="inline-flex justify-center items-center py-3 px-5 text-base font-medium text-center text-blue-600 rounded-lg bg-blue-200 hover:bg-blue-300 focus:ring-4 focus:ring-blue-300"
+              >
+                Login to tasks
+              </Link>
+              <Link
+                href="/register"
+                className="inline-flex justify-center items-center py-3 px-5 text-base font-medium text-center text-gray-900 rounded-lg border border-gray-300 hover:bg-gray-100 focus:ring-4 focus:ring-gray-100 dark:text-white dark:border-gray-700 dark:hover:bg-gray-700 dark:focus:ring-gray-800"
+              >
+                Create an account
+              </Link>
+            </>
+          )}
         </div>
 
         <div className="px-4 mx-auto text-center md:max-w-screen-md lg:max-w-screen-lg lg:px-36">

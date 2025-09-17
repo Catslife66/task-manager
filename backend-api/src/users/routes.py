@@ -57,6 +57,42 @@ INVALID_TOKEN_ERR = {
     "code": "UNAUTHORIZED",
     "message": "Invalid token payload."
 }
+PASSWORD_RESET_ERR = {
+    "code": "INVALID OR EXPIRED",
+    "message": "The password reset token is invalid or has expired."
+}
+
+def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
+    response.set_cookie(
+        REFRESH_TOKEN_NAME,
+        refresh_token,
+        httponly=True,
+        secure=IS_PROD_MODE,
+        samesite="lax",
+        path="/api/users/refresh",
+        max_age=REFRESH_TOKEN_EXPIRE_MINUTE * 60,
+    )
+
+def _set_csrf_cookie(response: Response, csrf_token: str) -> None:
+    response.set_cookie(
+        CSRF_TOKEN_NAME,
+        csrf_token,
+        httponly=False,
+        secure=IS_PROD_MODE,
+        samesite="lax",
+        path="/",
+    )
+
+def _set_session_cookie(response: Response, session_jwt: str) -> None:
+    response.set_cookie(
+        SESSION_COOKIE_NAME,
+        session_jwt,
+        httponly=True,
+        secure=IS_PROD_MODE,
+        samesite="lax",
+        path="/",
+        max_age=SESSION_COOKIE_EXPIRE_MINUTE * 60,
+    )
 
 @router.get("/", response_model=list[UserReadSchema])
 def get_users(session: Session=Depends(get_session)):
@@ -104,34 +140,11 @@ def login_user(
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=USER_UNAUTH_ERR)
     access_token, refresh_token = create_tokens(data={"sub": user.email})
-    response.set_cookie(
-        REFRESH_TOKEN_NAME,
-        refresh_token,
-        httponly=True,
-        secure=IS_PROD_MODE,
-        samesite="lax",
-        path="/api/users/refresh",
-        max_age=REFRESH_TOKEN_EXPIRE_MINUTE*60
-    )
     csrf_token = create_csrf_token()
-    response.set_cookie(
-        CSRF_TOKEN_NAME,
-        csrf_token,
-        httponly=False,
-        secure=IS_PROD_MODE,
-        samesite="lax",
-        path="/"
-    )
     session_cookie = create_session_cookie(data={"sub": user.email}) 
-    response.set_cookie(
-        SESSION_COOKIE_NAME, 
-        session_cookie, 
-        httponly=True, 
-        secure=IS_PROD_MODE, 
-        samesite="lax", 
-        path="/", 
-        max_age=SESSION_COOKIE_EXPIRE_MINUTE*60
-    )
+    _set_refresh_cookie(response, refresh_token)
+    _set_csrf_cookie(response, csrf_token)
+    _set_session_cookie(response, session_cookie)
     return TokenSchema(access_token=access_token)
 
 @router.post("/refresh", response_model=TokenSchema, dependencies=[Depends(csrf_protect)])
@@ -154,35 +167,11 @@ def refresh_tokens(
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=USER_NOT_FOUND_ERR)
         access_token, new_refresh_token = create_tokens(data={"sub": user.email})
-        response.set_cookie(
-            REFRESH_TOKEN_NAME,
-            new_refresh_token,
-            httponly=True,
-            secure=IS_PROD_MODE,
-            samesite='lax',
-            path="/api/users/refresh",
-            max_age=REFRESH_TOKEN_EXPIRE_MINUTE*60
-        )
-        csrf = create_csrf_token()
-        response.set_cookie(
-            "csrf_token",
-            csrf,
-            httponly=False,
-            secure=IS_PROD_MODE,
-            samesite="lax",
-            path="/"
-        )
+        csrf_token = create_csrf_token()
         session_cookie = create_session_cookie(data={"sub": user.email}) 
-        response.set_cookie(
-            SESSION_COOKIE_NAME, 
-            session_cookie, 
-            httponly=True, 
-            secure=IS_PROD_MODE, 
-            samesite="lax", 
-            path="/", 
-            max_age=SESSION_COOKIE_EXPIRE_MINUTE*60
-        )
-
+        _set_refresh_cookie(response, new_refresh_token)
+        _set_csrf_cookie(response, csrf_token)
+        _set_session_cookie(response, session_cookie)
         return TokenSchema(access_token=access_token)
     except HTTPException:
         raise
@@ -244,63 +233,28 @@ def forgot_password(
 @router.post("/reset-password", response_model=TokenSchema)
 def reset_password(
     payload: PasswordResetRequestSchema,
-    response: Response,
     session: Session = Depends(get_session)
 ):
     hashed_token = hash_reset_token(payload.token)
-    reset_ps = session.exec(
+    new_ps = session.exec(
         select(PasswordReset).where(
             (PasswordReset.hashed_token == hashed_token) &
             (PasswordReset.used == False) &
             (PasswordReset.expires_at > datetime.now())
         )
     ).first()
-    if not reset_ps:
+    if not new_ps:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "code": "INVALID OR EXPIRED",
-                "message": "The password reset token is invalid or has expired."
-            }
+            detail=PASSWORD_RESET_ERR
         )
-    user = session.get(User, reset_ps.user_id)
+    user = session.get(User, new_ps.user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=USER_NOT_FOUND_ERR)
     
     user.hashed_password = hash_password(payload.new_password)
-    reset_ps.used = True
-
-    session.add_all([user, reset_ps])
+    new_ps.used = True
+    session.add_all([user, new_ps])
     session.commit()
 
-    access_token, refresh_token = create_tokens(data={"sub": user.email})
-    response.set_cookie(
-        REFRESH_TOKEN_NAME,
-        refresh_token,
-        httponly=True,
-        secure=IS_PROD_MODE,
-        samesite="lax",
-        path="/api/users/refresh",
-        max_age=REFRESH_TOKEN_EXPIRE_MINUTE*60
-    )
-    csrf_token = create_csrf_token()
-    response.set_cookie(
-        CSRF_TOKEN_NAME,
-        csrf_token,
-        httponly=False,
-        secure=IS_PROD_MODE,
-        samesite="lax",
-        path="/"
-    )
-    session_cookie = create_session_cookie(data={"sub": user.email}) 
-    response.set_cookie(
-        SESSION_COOKIE_NAME, 
-        session_cookie, 
-        httponly=True, 
-        secure=IS_PROD_MODE, 
-        samesite="lax", 
-        path="/", 
-        max_age=SESSION_COOKIE_EXPIRE_MINUTE*60
-    )
-
-    return TokenSchema(access_token=access_token)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
