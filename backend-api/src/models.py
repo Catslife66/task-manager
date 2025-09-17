@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from sqlmodel import Field, Relationship, SQLModel
 from enum import Enum as PyEnum
@@ -18,7 +18,7 @@ class User(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.now)
 
     tasks: list["Task"] = Relationship(back_populates="user")
-
+    password_resets: list["PasswordReset"] = Relationship(back_populates="user")
 
 class Task(SQLModel, table=True):
     __tablename__ = "tasks"
@@ -35,3 +35,13 @@ class Task(SQLModel, table=True):
     user: Optional[User] = Relationship(back_populates="tasks")
 
 
+class PasswordReset(SQLModel, table=True):
+    __tablename__ = "password_resets"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int | None = Field(default=None, foreign_key="users.id")
+    hashed_token: str = Field(index=True, unique=True)
+    expires_at: datetime = Field(default_factory=lambda: datetime.now() + timedelta(minutes=60))
+    used: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=datetime.now)
+
+    user: Optional[User] = Relationship(back_populates="password_resets")

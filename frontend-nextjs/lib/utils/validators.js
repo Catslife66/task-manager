@@ -1,7 +1,7 @@
 import * as z from "zod";
 
 export const registerForm = z.object({
-  email: z.email(),
+  email: z.email({ error: "Invalid email address" }),
   password: z
     .string()
     .min(8, { error: "Password must be at least 8 characters long." })
@@ -27,4 +27,13 @@ export const taskCreateForm = z.object({
     .date({ error: "Please fill the date and time." })
     .min(new Date(), { error: "Due date has to be a future date." }),
   priority: z.enum(["LOW", "MEDIUM", "HIGH"]),
+});
+
+export const loginForm = z.object({
+  email: z.email({ error: "Invalid email address" }),
+  password: z.string().min(1, { error: "Password cannot be empty." }),
+});
+
+export const passwordResetRequestForm = z.object({
+  email: z.email({ error: "Invalid email address" }),
 });

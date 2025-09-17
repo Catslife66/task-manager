@@ -1,3 +1,4 @@
+from datetime import datetime 
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlmodel import Session, select
@@ -7,16 +8,26 @@ from src.db import get_session
 from src.users.helpers import (
     REFRESH_TOKEN_EXPIRE_MINUTE,
     SESSION_COOKIE_EXPIRE_MINUTE,
+    create_raw_token,
     create_session_cookie,
     create_tokens, 
     get_current_user, 
-    hash_password, 
+    hash_password,
+    hash_reset_token, 
     verify_password, 
     verify_token
 )
-from src.users.schemas import TokenSchema, UserCreateSchema, UserInSchema, UserReadSchema
-from src.models import User
-from src.users.csrf import create_csrf_token, csrf_protect 
+from src.users.schemas import (
+    TokenSchema, 
+    UserCreateSchema, 
+    UserInSchema, 
+    UserReadSchema,
+    ForgotPasswordRequestSchema,
+    PasswordResetRequestSchema
+)
+from src.models import PasswordReset, User
+from src.users.csrf import create_csrf_token, csrf_protect
+from .email_sender import send_password_change_email 
 
 router = APIRouter()
 
@@ -206,3 +217,90 @@ def logout_user(response:Response):
         path="/", 
     )
     return
+
+@router.post("/forgot-password")
+def forgot_password(
+    payload: ForgotPasswordRequestSchema,
+    request: Request,
+    session: Session = Depends(get_session)
+):
+    user = session.exec(select(User).where(User.email == payload.email)).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=USER_NOT_FOUND_ERR)
+    raw_token = create_raw_token()
+    reset_ps = PasswordReset(
+        user_id=user.id,
+        hashed_token=hash_reset_token(raw_token),
+    )
+    session.add(reset_ps)
+    session.commit()
+
+    base = request.headers.get("origin", "http://localhost:3000")
+    url = f"{base}/reset-password?token={raw_token}"
+    send_password_change_email(user.email, url)  
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+@router.post("/reset-password", response_model=TokenSchema)
+def reset_password(
+    payload: PasswordResetRequestSchema,
+    response: Response,
+    session: Session = Depends(get_session)
+):
+    hashed_token = hash_reset_token(payload.token)
+    reset_ps = session.exec(
+        select(PasswordReset).where(
+            (PasswordReset.hashed_token == hashed_token) &
+            (PasswordReset.used == False) &
+            (PasswordReset.expires_at > datetime.now())
+        )
+    ).first()
+    if not reset_ps:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "INVALID OR EXPIRED",
+                "message": "The password reset token is invalid or has expired."
+            }
+        )
+    user = session.get(User, reset_ps.user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=USER_NOT_FOUND_ERR)
+    
+    user.hashed_password = hash_password(payload.new_password)
+    reset_ps.used = True
+
+    session.add_all([user, reset_ps])
+    session.commit()
+
+    access_token, refresh_token = create_tokens(data={"sub": user.email})
+    response.set_cookie(
+        REFRESH_TOKEN_NAME,
+        refresh_token,
+        httponly=True,
+        secure=IS_PROD_MODE,
+        samesite="lax",
+        path="/api/users/refresh",
+        max_age=REFRESH_TOKEN_EXPIRE_MINUTE*60
+    )
+    csrf_token = create_csrf_token()
+    response.set_cookie(
+        CSRF_TOKEN_NAME,
+        csrf_token,
+        httponly=False,
+        secure=IS_PROD_MODE,
+        samesite="lax",
+        path="/"
+    )
+    session_cookie = create_session_cookie(data={"sub": user.email}) 
+    response.set_cookie(
+        SESSION_COOKIE_NAME, 
+        session_cookie, 
+        httponly=True, 
+        secure=IS_PROD_MODE, 
+        samesite="lax", 
+        path="/", 
+        max_age=SESSION_COOKIE_EXPIRE_MINUTE*60
+    )
+
+    return TokenSchema(access_token=access_token)

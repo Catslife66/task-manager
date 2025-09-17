@@ -1,11 +1,13 @@
 from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
+import hashlib
 import jwt
 from jwt.exceptions import InvalidTokenError, ExpiredSignatureError
 from decouple import config
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session, select
+import secrets
 
 from src.db import get_session
 from src.models import User
@@ -102,3 +104,9 @@ def create_session_cookie(data: dict):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+def create_raw_token():
+    return secrets.token_urlsafe(48)
+
+def hash_reset_token(raw_token: str):
+    return hashlib.sha256(raw_token.encode('utf-8')).hexdigest()

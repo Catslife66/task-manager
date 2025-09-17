@@ -26,3 +26,12 @@ class TokenSchema(SQLModel):
 
 class TokenDataSchema(SQLModel):
     email: EmailStr | None = None
+
+
+class ForgotPasswordRequestSchema(SQLModel):
+    email: EmailStr
+
+
+class PasswordResetRequestSchema(SQLModel):
+    token: str = Field(min_length=10, max_length=400)
+    new_password: Annotated[str, AfterValidator(check_password_strength)]

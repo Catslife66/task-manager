@@ -3,24 +3,31 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../../authProvider";
+import { loginForm } from "../../../lib/utils/validators";
 
 const LOGIN_ENDPOINT = "/users/login";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null);
   const auth = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    const result = loginForm.safeParse({ email, password });
+    if (!result.success) {
+      const errors = result.error.issues.map((er, _) => er.message);
+      console.log(errors);
+      setError(errors);
+      return;
+    }
+
     try {
-      const res = await auth.api.post(
-        LOGIN_ENDPOINT,
-        { email, password },
-        { withCredentials: true }
-      );
+      const res = await auth.api.post(LOGIN_ENDPOINT, result.data, {
+        withCredentials: true,
+      });
       const { access_token } = res.data;
       auth.login(access_token, email);
     } catch (e) {
@@ -44,7 +51,14 @@ export default function LoginPage() {
             <h1 className="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl dark:text-white">
               Sign in to your task manager
             </h1>
-            {error && (
+            {error && error.length > 1 && (
+              <div className="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50">
+                {error.map((err, i) => (
+                  <p key={i}>{err}</p>
+                ))}
+              </div>
+            )}
+            {error && error.length === 1 && (
               <div className="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50">
                 {error}
               </div>
@@ -63,7 +77,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
-                    setError("");
+                    setError(null);
                   }}
                   className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                   autoComplete="off"
@@ -83,7 +97,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
-                    setError("");
+                    setError(null);
                   }}
                   className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                   autoComplete="off"
