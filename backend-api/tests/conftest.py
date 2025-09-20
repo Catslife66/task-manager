@@ -10,7 +10,7 @@ from src.models import User, Task
 from src.users.helpers import create_access_token, hash_password
 
 
-TEST_DATABASE_URL = decouple_config("TEST_DATABASE_URL", default="postgresql+psycopg2://taskadmin:taskmanageradmin123@db:5432/test_db")
+TEST_DATABASE_URL = decouple_config("TEST_DATABASE_URL")
 engine = create_engine(TEST_DATABASE_URL, echo=True)
 
 @pytest.fixture(scope="session")

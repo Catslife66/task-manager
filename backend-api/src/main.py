@@ -28,15 +28,20 @@ app.include_router(users_router, prefix="/api/users", tags=["users"])
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc:HTTPException):
+    default = {
+        "code": "HTTP ERROR",
+        "message": "Request failed.",
+        "fields": {}
+    }
     detail = exc.detail
     if isinstance(detail, dict):
-        code = detail.get('code', 'HTTP ERROR')
-        msg = detail.get('message', "Request failed.")
-        fields = detail.get('fields', {})
+        code = detail.get('code', default["code"])
+        msg = detail.get('message', default["message"])
+        fields = detail.get('fields', default["fields"])
     else:
-        code = 'HTTP ERROR'
-        msg = str(detail) if detail else "Request failed."
-        fields = {}
+        code = default["code"]
+        msg = str(detail) if detail else default["message"]
+        fields = default["fields"]
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -70,6 +75,6 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         }
     )
 
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
+@app.get("/health")
+def health():
+    return {"ok": True}
