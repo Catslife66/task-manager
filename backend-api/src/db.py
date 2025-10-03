@@ -1,8 +1,8 @@
-from decouple import config
 from sqlmodel import Session, SQLModel, create_engine
+from . import settings
 
-
-database_url = config("DATABASE_URL")
+database_url = settings.DATABASE_URL
+print(database_url)
 engine = create_engine(database_url, echo=True)
 
 def init_db():

@@ -11,7 +11,8 @@ else:
     config = config_default
 
 DATABASE_URL = config("DATABASE_URL")
-IS_PROD_MODE   = config("IS_PROD_MODE")
+IS_PROD_MODE = config("IS_PROD_MODE")
+TEST_USE_DATABASE_URL = config("TEST_DATABASE_URL", default=None)
 
 if __name__ == "__main__":
     print("IS_PROD_MODE =", IS_PROD_MODE)

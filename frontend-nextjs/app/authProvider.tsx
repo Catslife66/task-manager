@@ -3,11 +3,11 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { getCsrfFromCookie } from "../lib/utils/getCSRFToken";
-import axios from "axios";
-
-export const AuthContext = createContext({});
-
-export const useAuth = () => useContext(AuthContext);
+import axios, {
+  AxiosInstance,
+  AxiosRequestConfig,
+  AxiosRequestHeaders,
+} from "axios";
 
 const LOGIN_URL = "/login";
 const LOGIN_REDIRECT_URL = "/";
@@ -16,16 +16,43 @@ const VERIFY_ACCESS_API_ENDPOINT = `${BACKEND_ENDPOINT_BASE}/users/verify`;
 const VERIFY_REFRESH_API_ENDPOINT = `${BACKEND_ENDPOINT_BASE}/users/refresh`;
 const LOGOUT_ENDPOINT = "/users/logout";
 
-export default function AuthProvider({ children }) {
+interface AxiosRequestConfigWithRetry extends AxiosRequestConfig {
+  _retry?: boolean;
+}
+
+export type AuthContextValue = {
+  isAuthenticated: boolean;
+  accessToken: string | null;
+  userEmail: string | null;
+  api: AxiosInstance;
+  login: (access: string, email?: string | null) => void;
+  logout: () => Promise<void>;
+};
+
+type Props = {
+  children: React.ReactNode;
+};
+
+export const AuthContext = createContext<AuthContextValue | undefined>(
+  undefined
+);
+
+export const useAuth = (): AuthContextValue => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within <AuthProvider>");
+  return ctx;
+};
+
+export default function AuthProvider({ children }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [accessToken, setAccessToken] = useState(null);
-  const [userEmail, setUserEmail] = useState(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   const searchParam = useSearchParams();
   const router = useRouter();
 
-  async function verifyWithAccess(token) {
+  async function verifyWithAccess(token: string): Promise<boolean> {
     try {
       const config = {
         headers: {
@@ -41,7 +68,7 @@ export default function AuthProvider({ children }) {
     }
   }
 
-  async function verifyWithRefresh() {
+  async function verifyWithRefresh(): Promise<string | null> {
     try {
       const csrf = getCsrfFromCookie();
       const config = {
@@ -57,7 +84,7 @@ export default function AuthProvider({ children }) {
     }
   }
 
-  async function getUserState() {
+  async function getUserState(): Promise<void> {
     let token = accessToken || (await verifyWithRefresh());
 
     if (!token) {
@@ -79,7 +106,7 @@ export default function AuthProvider({ children }) {
     }
   }
 
-  const api = useMemo(() => {
+  const api: AxiosInstance = useMemo(() => {
     const instance = axios.create({
       baseURL: BACKEND_ENDPOINT_BASE,
       timeout: 1000,
@@ -88,8 +115,10 @@ export default function AuthProvider({ children }) {
 
     instance.interceptors.request.use((config) => {
       if (accessToken) {
-        config.headers = config.headers || {};
-        config.headers.Authorization = `Bearer ${accessToken}`;
+        const headers: AxiosRequestHeaders = (config.headers ??
+          {}) as AxiosRequestHeaders;
+        headers.Authorization = `Bearer ${accessToken}`;
+        config.headers = headers;
       }
       return config;
     });
@@ -97,19 +126,28 @@ export default function AuthProvider({ children }) {
     instance.interceptors.response.use(
       (response) => response,
       async (error) => {
-        const { response, config } = error || {};
-        if (!response || error.response?.status !== 401 || !config._retry) {
+        const response = error?.response;
+        const config = (error?.config ?? {}) as AxiosRequestConfigWithRetry;
+        if (!response || response.status !== 401 || config._retry) {
           throw error;
         }
         config._retry = true;
         const token = await verifyWithRefresh();
-        if (!token) throw error;
+        if (!token) {
+          throw error;
+        }
+
+        const headers: AxiosRequestHeaders = (config.headers ??
+          {}) as AxiosRequestHeaders;
+        headers.Authorization = `Bearer ${accessToken ?? token}`;
+        config.headers = headers;
+
         return instance(config);
       }
     );
 
     return instance;
-  }, [accessToken, verifyWithRefresh]);
+  }, [accessToken]);
 
   useEffect(() => {
     let cancelled = false;
@@ -135,7 +173,7 @@ export default function AuthProvider({ children }) {
     };
   }, []);
 
-  const login = (access, email = null) => {
+  const login = (access: string, email: string | null = null) => {
     setAccessToken(access);
     setIsAuthenticated(true);
     if (email) setUserEmail(email);
@@ -152,7 +190,7 @@ export default function AuthProvider({ children }) {
     }
   };
 
-  const logout = async () => {
+  const logout = async (): Promise<void> => {
     try {
       await api.post(
         LOGOUT_ENDPOINT,
@@ -174,11 +212,14 @@ export default function AuthProvider({ children }) {
 
   if (isLoading) return null;
 
-  return (
-    <AuthContext.Provider
-      value={{ isAuthenticated, accessToken, userEmail, api, login, logout }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  const value: AuthContextValue = {
+    isAuthenticated,
+    accessToken,
+    userEmail,
+    api,
+    login,
+    logout,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

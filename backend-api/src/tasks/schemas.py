@@ -18,7 +18,7 @@ class TaskUpdateSchema(SQLModel):
     title: Optional[str] = None
     description: Optional[str] = None
     due_date: Optional[datetime] = None
-    priority: str = Field(default=Priority.MEDIUM)
+    priority: Optional[str] = None
     is_completed: Optional[bool] = None
    
 

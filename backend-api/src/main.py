@@ -2,8 +2,8 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from .tasks.routes import router as tasks_router
-from .users.routes import router as users_router
+from src.tasks.routes import router as tasks_router
+from src.users.routes import router as users_router
 
 # the following is for early dev stages where we want to check the database connection
 # and initialize the database schema. Once Alembic is set up, this can be removed.

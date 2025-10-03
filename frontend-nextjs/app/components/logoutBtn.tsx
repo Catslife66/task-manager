@@ -25,7 +25,7 @@ export default function LogoutBtn() {
       </button>
 
       {isOpenModal && (
-        <div id="logout-modal" tabIndex="-1" className="logout-modal">
+        <div id="logout-modal" tabIndex={-1} className="logout-modal">
           <div className="relative p-4 w-full h-full bg-gray-100 flex justify-center items-center">
             <div className="relative max-w-2/3 bg-white rounded-lg shadow-sm">
               <button

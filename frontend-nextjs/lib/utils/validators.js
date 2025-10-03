@@ -17,7 +17,7 @@ export const registerForm = z.object({
     }),
 });
 
-export const taskCreateForm = z.object({
+export const taskForm = z.object({
   title: z
     .string()
     .min(1, { error: "Title cannot be empty." })

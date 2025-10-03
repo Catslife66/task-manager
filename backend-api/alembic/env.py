@@ -1,13 +1,13 @@
 from logging.config import fileConfig
-from decouple import config as decouple_config
 from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 from alembic import context
+from src import settings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-database_url = decouple_config("DATABASE_URL")
+database_url = settings.DATABASE_URL
 
 if not database_url:
     raise RuntimeError("DATABASE_URL is not set")

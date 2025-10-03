@@ -1,58 +1,107 @@
 "use client";
 
 import { useState } from "react";
-import { taskCreateForm } from "../../lib/utils/validators";
+import { taskForm } from "../../lib/utils/validators";
 import { useAuth } from "../authProvider";
-import { useRouter } from "next/navigation";
+import { NewTask, Priority, Task } from "../../lib/types";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { createTask } from "../../lib/actions";
+import { TaskFormData, FieldErrs } from "../../lib/types";
 
 export default function AddTaskForm() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
-  const [priority, setPriority] = useState("MEDIUM");
-  const [errs, setErrs] = useState(null);
-  const [isSaving, setIsSaving] = useState(false);
+  const [priority, setPriority] = useState<Priority>("MEDIUM");
+  const [errs, setErrs] = useState<FieldErrs | null>(null);
   const auth = useAuth();
-  const router = useRouter();
+  const queryClient = useQueryClient();
 
-  const handleSubmit = async (e) => {
+  const createMu = useMutation<
+    Task,
+    Error,
+    NewTask,
+    { prev?: Task[]; tempId: string }
+  >({
+    mutationFn: (payload) => createTask(auth.api, payload as any),
+    onMutate: async (payload) => {
+      await queryClient.cancelQueries({ queryKey: ["tasks"] });
+      const prev = queryClient.getQueryData<Task[]>(["tasks"]);
+      const tempId = "temp-" + Date.now();
+      const optimisticTask: Task = {
+        id: tempId,
+        title: payload.title,
+        description: payload.description,
+        due_date: payload.due_date,
+        priority: payload.priority ?? "MEDIUM",
+        is_completed: false,
+      };
+
+      queryClient.setQueryData<Task[]>(["tasks"], (old) => [
+        optimisticTask,
+        ...(old ?? []),
+      ]);
+
+      return { prev, tempId };
+    },
+    onSuccess: (serverTask, _payload, ctx) => {
+      queryClient.setQueryData<Task[]>(["tasks"], (old = []) =>
+        old.map((t) => (t.id === ctx?.tempId ? serverTask : t))
+      );
+      setTitle("");
+      setDescription("");
+      setDueDate("");
+      setPriority("MEDIUM");
+    },
+    onError: (_err, _payload, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["tasks"], ctx.prev);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrs(null);
-    const formData = {
+    const raw = {
       title,
       description,
       due_date: dueDate,
       priority,
     };
-    const result = taskCreateForm.safeParse(formData);
+    const result = taskForm.safeParse(raw);
     if (!result.success) {
-      let fieldErrs = {};
+      let fieldErrs: FieldErrs = {};
       result.error.issues.forEach((err, _) => {
-        let key = err.path[0];
+        let key = err.path[0] as keyof TaskFormData;
         if (!fieldErrs[key]) fieldErrs[key] = err.message;
       });
       setErrs(fieldErrs);
+      return;
     } else {
-      setIsSaving(true);
-      try {
-        await auth.api.post("/tasks", result.data);
-        router.refresh();
-        setTitle("");
-        setDescription("");
-        setDueDate("");
-        setPriority("MEDIUM");
-      } catch (e) {
-        setErrs({ general: "Failed to save the task" });
-        console.log(e);
-      } finally {
-        setIsSaving(false);
-      }
+      const d: unknown = (result.data as any).due_date;
+      const iso =
+        d instanceof Date
+          ? d.toISOString()
+          : typeof d === "string" && d
+          ? new Date(d).toISOString()
+          : undefined;
+
+      const payload: NewTask = {
+        title: result.data.title,
+        description: result.data.description || undefined,
+        priority: result.data.priority as Priority,
+        due_date: iso,
+      };
+
+      createMu.mutate(payload);
     }
   };
 
   return (
     <div className="w-full mx-auto flex justify-center items-center py-8 my-4">
-      <form className="max-w-screen-md w-full">
+      <form className="max-w-screen-md w-full" onSubmit={onSubmit}>
         {errs?.general && (
           <div className="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50">
             {errs.general}
@@ -66,7 +115,7 @@ export default function AddTaskForm() {
               value={title}
               onChange={(e) => {
                 setTitle(e.target.value);
-                setErrs({ ...errs, title: "" });
+                setErrs((prev) => ({ ...(prev ?? {}), title: "" }));
               }}
               className="block w-full px-0 py-2 text-sm text-gray-900 bg-transparent border-0 border-b-2 border-gray-300 appearance-none dark:text-white dark:border-gray-600 dark:focus:border-blue-500 focus:outline-none peer"
               placeholder=" "
@@ -92,7 +141,7 @@ export default function AddTaskForm() {
               value={description}
               onChange={(e) => {
                 setDescription(e.target.value);
-                setErrs({ ...errs, description: "" });
+                setErrs((prev) => ({ ...(prev ?? {}), description: "" }));
               }}
               className="block w-full px-0 py-2 text-sm text-gray-900 bg-transparent border-0 border-b-2 border-gray-300 appearance-none dark:text-white dark:border-gray-600 dark:focus:border-blue-500 focus:outline-none peer"
             />
@@ -117,11 +166,11 @@ export default function AddTaskForm() {
                   className="block w-full px-0 py-2 text-sm text-gray-900 bg-transparent border-0 border-b-2 border-gray-300 appearance-none dark:text-white dark:border-gray-600 dark:focus:border-blue-500 focus:outline-none peer"
                   type="datetime-local"
                   name="dueDate"
-                  min={new Date()}
+                  min={new Date().toLocaleDateString()}
                   value={dueDate}
                   onChange={(e) => {
                     setDueDate(e.target.value);
-                    setErrs({ ...errs, due_date: "" });
+                    setErrs((prev) => ({ ...(prev ?? {}), due_date: "" }));
                   }}
                   placeholder="Select date"
                 />
@@ -142,8 +191,7 @@ export default function AddTaskForm() {
               <div className="relative">
                 <select
                   value={priority}
-                  onChange={(e) => setPriority(e.target.value)}
-                  placeholder="Priority"
+                  onChange={(e) => setPriority(e.target.value as Priority)}
                   className="block py-2.5 px-0 w-full text-xs text-gray-500 bg-transparent border-0 border-b-2 border-gray-200 appearance-none dark:text-gray-400 dark:border-gray-700 focus:outline-none focus:ring-0 focus:border-gray-200 peer"
                 >
                   <option value="LOW">LOW</option>
@@ -162,10 +210,10 @@ export default function AddTaskForm() {
 
           <button
             type="submit"
+            disabled={createMu.isPending}
             className="cursor-pointer flex flex-row justify-center items-center bg-gray-500 text-white rounded-sm p-2 hover:bg-gray-800"
-            onClick={handleSubmit}
           >
-            {isSaving ? (
+            {createMu.isPending ? (
               <>
                 <svg
                   aria-hidden="true"

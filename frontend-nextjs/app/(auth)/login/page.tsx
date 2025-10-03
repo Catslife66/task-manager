@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../../authProvider";
 import { loginForm } from "../../../lib/utils/validators";
@@ -13,7 +13,7 @@ export default function LoginPage() {
   const [error, setError] = useState(null);
   const auth = useAuth();
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     const result = loginForm.safeParse({ email, password });
@@ -81,7 +81,7 @@ export default function LoginPage() {
                   }}
                   className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                   autoComplete="off"
-                  required=""
+                  required={true}
                 />
               </div>
               <div>
@@ -101,7 +101,7 @@ export default function LoginPage() {
                   }}
                   className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                   autoComplete="off"
-                  required=""
+                  required={true}
                 />
               </div>
               <div className="flex items-center justify-between">

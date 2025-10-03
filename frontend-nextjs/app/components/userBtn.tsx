@@ -7,8 +7,8 @@ export default function UserBtn({ userEmail }) {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (ref.current && !ref.current.contains(event.target)) {
+    const handleClickOutside = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target)) {
         setIsOpen(false);
       }
     };

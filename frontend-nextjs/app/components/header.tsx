@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import UserBtn from "./userBtn";
-import LogoutBtn from "./logoutBtn";
 import { useAuth } from "../authProvider";
 
 export default function Header() {
