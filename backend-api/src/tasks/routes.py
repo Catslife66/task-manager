@@ -3,7 +3,7 @@ from sqlmodel import Session, select
 from src.db import get_session
 from src.models import Task, User
 from src.users.helpers import get_current_user
-from .schemas import TaskCreateSchema, TaskReadSchema, TaskUpdateSchema
+from .schemas import PaginatedTaskSchema, TaskCreateSchema, TaskReadSchema, TaskUpdateSchema
 
 router = APIRouter()
 
@@ -24,18 +24,37 @@ def get_tasks(session: Session = Depends(get_session)):
     tasks = session.exec(select(Task)).all()
     return tasks
 
-@router.get("/tasks/user", response_model=list[TaskReadSchema])
+@router.get("/tasks/user", response_model=PaginatedTaskSchema)
 def get_user_tasks(
     current_user: User = Depends(get_current_user), 
     session: Session = Depends(get_session),
-    q: str | None = Query(None),
-):
-    query = select(Task).where(Task.user_id == current_user.id)
-    if q:
-        query = query.where(Task.title.contains(q) | Task.description.contains(q))
-    query = query.order_by(Task.priority.desc(), Task.created_at.desc())
-    tasks = session.exec(query).all()
-    return tasks
+    offset: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    is_completed: bool | None = Query(None),
+): 
+    base_q = select(Task).where(Task.user_id == current_user.id)
+    all_tasks = session.exec(base_q).all()
+    total = len(all_tasks)
+
+    if is_completed is not None:
+        base_q = base_q.where(Task.is_completed == is_completed)
+
+    limited_q = base_q.offset(offset).limit(limit)
+    paginated_tasks = session.exec(limited_q).all()
+    
+    has_next = (offset + len(paginated_tasks)) < total
+
+    result = PaginatedTaskSchema(
+        items=paginated_tasks,
+        total=total,
+        limit=limit,
+        offset=offset,
+        has_next=has_next,
+    )
+
+    return result
+
+
 
 @router.get("/tasks/{task_id}", response_model=TaskReadSchema)
 def get_task(task_id:int, session: Session=Depends(get_session)):

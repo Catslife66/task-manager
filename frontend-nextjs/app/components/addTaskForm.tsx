@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { taskForm } from "../../lib/utils/validators";
 import { useAuth } from "../authProvider";
-import { NewTask, Priority, Task } from "../../lib/types";
+import { NewTask, Priority, Task } from "../../lib/tasks/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createTask } from "../../lib/actions";
-import { TaskFormData, FieldErrs } from "../../lib/types";
+import { createTask } from "../../lib/tasks/actions";
+import { TaskFormData, FieldErrs } from "../../lib/tasks/types";
 
 export default function AddTaskForm() {
   const [title, setTitle] = useState("");

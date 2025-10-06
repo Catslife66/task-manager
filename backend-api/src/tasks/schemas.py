@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from sqlmodel import Field, SQLModel
 
 from src.models import Priority
@@ -32,3 +32,11 @@ class TaskReadSchema(SQLModel):
     created_at: datetime
     updated_at: datetime
     user_id: Optional[int] = None
+
+
+class PaginatedTaskSchema(SQLModel):
+    items: List[TaskReadSchema]
+    total: int
+    limit: int
+    offset: int
+    has_next: bool

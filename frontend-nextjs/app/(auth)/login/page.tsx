@@ -4,43 +4,55 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../../authProvider";
 import { loginForm } from "../../../lib/utils/validators";
-
-const LOGIN_ENDPOINT = "/users/login";
+import {
+  LoginFormData,
+  LoginFormErrs,
+  LoginResponse,
+} from "../../../lib/users/types";
+import { useMutation } from "@tanstack/react-query";
+import { AxiosError } from "axios";
+import { loginUser } from "../../../lib/users/actions";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<LoginFormErrs | null>(null);
   const auth = useAuth();
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const loginMu = useMutation<LoginResponse, AxiosError, LoginFormData>({
+    mutationFn: (data: LoginFormData) => loginUser(auth.api, data),
+    onSuccess: (data, variables) =>
+      auth.login(data.access_token, variables.email),
+    onError: (err) => {
+      const msg =
+        (err.response?.data as any)?.errors?.message ||
+        (err.response?.data as any)?.errors?.detail ||
+        (err as Error).message ||
+        "Login failed";
+      setError({ general: msg });
+    },
+  });
 
-    const result = loginForm.safeParse({ email, password });
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    const raw: LoginFormData = { email, password };
+    const result = loginForm.safeParse(raw);
     if (!result.success) {
-      const errors = result.error.issues.map((er, _) => er.message);
-      console.log(errors);
-      setError(errors);
+      const errs: LoginFormErrs = {};
+      for (const err of result.error.issues) {
+        let key = err.path[0] as keyof LoginFormData;
+        if (!errs[key]) errs[key] = err.message;
+      }
+      setError(errs);
+      console.log(errs);
       return;
     }
 
-    try {
-      const res = await auth.api.post(LOGIN_ENDPOINT, result.data, {
-        withCredentials: true,
-      });
-      const { access_token } = res.data;
-      auth.login(access_token, email);
-    } catch (e) {
-      if (e.response) {
-        const err = e.response.data?.errors?.message || e.message;
-        setError(err);
-        console.log(e);
-      } else if (e.request) {
-        console.log(e.request);
-      } else {
-        console.log(e);
-      }
-    }
+    setError(null);
+    loginMu.mutateAsync({
+      email: result.data.email,
+      password: result.data.password,
+    });
   };
 
   return (
@@ -51,16 +63,19 @@ export default function LoginPage() {
             <h1 className="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl dark:text-white">
               Sign in to your task manager
             </h1>
-            {error && error.length > 1 && (
+            {error?.email && (
               <div className="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50">
-                {error.map((err, i) => (
-                  <p key={i}>{err}</p>
-                ))}
+                {error.email}
               </div>
             )}
-            {error && error.length === 1 && (
+            {error?.password && (
               <div className="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50">
-                {error}
+                {error.password}
+              </div>
+            )}
+            {error?.general && (
+              <div className="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50">
+                {error.general}
               </div>
             )}
             <form className="space-y-4 md:space-y-6" onSubmit={handleSubmit}>
@@ -77,7 +92,9 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
-                    setError(null);
+                    setError((prev) =>
+                      prev ? { ...prev, email: undefined } : prev
+                    );
                   }}
                   className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                   autoComplete="off"
@@ -97,7 +114,9 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
-                    setError(null);
+                    setError((prev) =>
+                      prev ? { ...prev, password: undefined } : prev
+                    );
                   }}
                   className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                   autoComplete="off"
@@ -114,9 +133,10 @@ export default function LoginPage() {
               </div>
               <button
                 type="submit"
+                disabled={loginMu.isPending}
                 className="cursor-pointer w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
               >
-                Sign in
+                {loginMu.isPending ? "Signing in..." : "Sign in"}
               </button>
 
               <p className="text-sm font-light text-gray-500 dark:text-gray-400">

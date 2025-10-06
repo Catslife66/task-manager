@@ -3,14 +3,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import TaskCard from "./taskCard";
 import { useAuth } from "../authProvider";
-import { Task } from "../../lib/types";
+import { Task, TaskPage } from "../../lib/tasks/types";
 import {
   completeTask,
   deleteTask,
   fetchTasks,
   updateTask,
-} from "../../lib/actions";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+} from "../../lib/tasks/actions";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export default function TaskList() {
   const [editId, setEditId] = useState<number | string>(null);
@@ -18,15 +18,16 @@ export default function TaskList() {
   const auth = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: tasks = [], isLoading } = useQuery<Task[]>({
+  const { data, isLoading } = useQuery<TaskPage>({
     queryKey: ["tasks"],
-    queryFn: () => fetchTasks(auth.api),
+    queryFn: () =>
+      fetchTasks(auth.api, { limit: 10, offset: 1, is_completed: false }),
     staleTime: 30_000,
   });
 
-  const todoTaskList: Task[] = useMemo(() => {
-    return tasks.filter((t) => !t.is_completed);
-  }, [tasks]);
+  const tasks = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const hasNext = data?.has_next ?? false;
 
   const completeMu = useMutation({
     mutationFn: (id: number | string) => completeTask(auth.api, id),
@@ -128,7 +129,7 @@ export default function TaskList() {
 
   if (isLoading) return <div>Loading…</div>;
 
-  if (todoTaskList.length === 0)
+  if (tasks.length === 0)
     return (
       <div className="text-center p-4 text-gray-800 font-bold p-4">
         No remaining uncompleted tasks found. Add a new task!
@@ -140,7 +141,7 @@ export default function TaskList() {
       ref={listRef}
       className="max-w-screen-md w-full mx-auto flex flex-col justify-center items-center space-y-2"
     >
-      {todoTaskList.map((task) => (
+      {tasks.map((task) => (
         <TaskCard
           key={task.id}
           task={task}

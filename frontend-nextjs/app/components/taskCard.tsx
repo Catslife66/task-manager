@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState, useEffect } from "react";
-import { FieldErrs, TaskFormData, Task } from "../../lib/types";
-import { Priority } from "../../lib/types";
+import { FieldErrs, TaskFormData, Task } from "../../lib/tasks/types";
+import { Priority } from "../../lib/tasks/types";
 import { taskForm } from "../../lib/utils/validators";
 
 type TaskItemProps = {
