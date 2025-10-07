@@ -1,16 +1,21 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { passwordResetForm } from "../../../lib/utils/validators";
 import { useAuth } from "../../authProvider";
-
-const RESET_PASSWORD_ENDPOINT = "/users/reset-password";
+import {
+  ResetPasswordRequestFormErrs,
+  PasswordResetFormData,
+} from "../../../lib/users/types";
+import { useMutation } from "@tanstack/react-query";
+import { resetPassword } from "../../../lib/users/actions";
+import { AxiosError } from "axios";
 
 export default function page() {
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
-  const [errs, setErrs] = useState(null);
+  const [errs, setErrs] = useState<ResetPasswordRequestFormErrs | null>(null);
   const [msg, setMsg] = useState(null);
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -22,29 +27,9 @@ export default function page() {
     return token && token.length > 0;
   }, [token]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!hasToken) {
-      setErrs(["Invalid or missing reset token."]);
-      return;
-    }
-    const result = passwordResetForm.safeParse({ password, password2 });
-    if (!result.success) {
-      const errors = result.error.issues.map((er, _) => er.message);
-      console.log(errors);
-      setErrs(errors);
-      return;
-    }
-    if (password !== password2) {
-      setErrs(["Passwords do not match."]);
-      return;
-    }
-    try {
-      const { password } = result.data;
-      await auth.api.post(RESET_PASSWORD_ENDPOINT, {
-        token: token,
-        new_password: password,
-      });
+  const resetPasswordMu = useMutation({
+    mutationFn: (data: PasswordResetFormData) => resetPassword(auth.api, data),
+    onSuccess: () => {
       setMsg("Your have reset your password successfully. Please login.");
       setTimeout(() => {
         router.replace("/login");
@@ -53,19 +38,48 @@ export default function page() {
         setErrs(null);
         setMsg(null);
       }, 1000);
-    } catch (e) {
-      if (e.response) {
-        const err =
-          e.response.data?.errors?.message ||
-          e.response.data?.errors?.detail ||
-          e.message;
-        setErrs([err]);
-        console.log(e);
-      } else {
-        setErrs(["An error occurred. Please try again."]);
-        console.log(e);
-      }
+    },
+    onError: (e: AxiosError) => {
+      const msg =
+        (e.response.data as any)?.errors?.message ||
+        (e.response.data as any)?.errors?.detail ||
+        e.message ||
+        "Reset password failed.";
+      setErrs({ general: msg });
+    },
+  });
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!hasToken) {
+      setErrs({ general: "Invalid or missing reset token." });
+      return;
     }
+    const raw: PasswordResetFormData = {
+      password,
+      password2,
+    };
+    const result = passwordResetForm.safeParse(raw);
+    if (!result.success) {
+      const errs: ResetPasswordRequestFormErrs = {};
+      for (const er of result.error.issues) {
+        let key = er.path[0] as keyof PasswordResetFormData;
+        if (!errs[key]) errs[key] = er.message;
+      }
+      setErrs(errs);
+      return;
+    }
+
+    if (password !== password2) {
+      setErrs({ general: "Passwords do not match." });
+      return;
+    }
+
+    resetPasswordMu.mutateAsync({
+      password: result.data.password,
+      password2: result.data.password2,
+    });
+    setErrs(null);
   };
 
   if (!hasToken)
@@ -103,16 +117,14 @@ export default function page() {
             <h1 className="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl dark:text-white">
               Reset your password
             </h1>
-            {errs && errs.length > 1 && (
+            {errs?.email && (
               <div className="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50">
-                {errs.map((err, i) => (
-                  <p key={i}>{err}</p>
-                ))}
+                {errs.email}
               </div>
             )}
-            {errs && errs.length === 1 && (
+            {errs?.general && (
               <div className="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50">
-                {errs}
+                {errs.general}
               </div>
             )}
             {msg && (
@@ -134,11 +146,13 @@ export default function page() {
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
-                    setErrs(null);
+                    setErrs((prev) =>
+                      prev ? { ...prev, password: undefined } : prev
+                    );
                   }}
                   className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                   autoComplete="off"
-                  required=""
+                  required={true}
                 />
               </div>
               <div>
@@ -154,18 +168,23 @@ export default function page() {
                   value={password2}
                   onChange={(e) => {
                     setPassword2(e.target.value);
-                    setErrs(null);
+                    setErrs((prev) =>
+                      prev ? { ...prev, password2: undefined } : prev
+                    );
                   }}
                   className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                   autoComplete="off"
-                  required=""
+                  required={true}
                 />
               </div>
               <button
                 type="submit"
+                disabled={resetPasswordMu.isPending}
                 className="cursor-pointer w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
               >
-                Reset Password
+                {resetPasswordMu.isPending
+                  ? "Resetting Your Password..."
+                  : "Reset Password"}
               </button>
             </form>
           </div>
